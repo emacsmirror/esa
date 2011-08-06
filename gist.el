@@ -134,7 +134,7 @@ With a prefix argument, makes a private paste."
            (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" location))
       (let ((id (match-string 1 location)))
         (setq http-url (format "https://gist.github.com/%s" id))
-        (message "Paste created: %s" location)
+        (message "Paste created: %s" http-url)
         (when gist-view-gist
           (browse-url http-url))))
      (t
