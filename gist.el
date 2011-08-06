@@ -33,6 +33,9 @@
 ;; Uses your local GitHub config if it can find it.
 ;; See http://github.com/blog/180-local-github-config
 
+;; if you are using Emacs 22 or earlier, download the json.el from following url
+;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
+
 ;;; Code:
 
 (eval-when-compile (require 'cl))
@@ -44,6 +47,9 @@ git-config(1).")
 (defvar github-token nil
   "If non-nil, will be used as your GitHub token without checking
 git-config(1).")
+
+(defvar gist-user-password nil
+  "If non-nil, will be used as your GitHub password without reading.")
 
 (defvar gist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
@@ -86,6 +92,8 @@ posted.")
 (defun gist-request (method url callback &optional json)
   (destructuring-bind (user . pass) (github-auth-info/v3)
     (let ((url-request-data (and json (json-encode json)))
+          ;; TODO http://developer.github.com/v3/oauth/ 
+          ;; "Desktop Application Flow" says that using the basic authentication...
           (url-request-extra-headers 
            `(("Authorization" . 
               ,(concat "Basic " 
@@ -205,10 +213,6 @@ for the info then sets it to the git config."
     (setq pass (gist-get-user-password))
 
     (cons user pass)))
-
-;; TODO http://developer.github.com/v3/oauth/ 
-;; "Desktop Application Flow" says that using the basic authentication...
-(defvar gist-user-password nil)
 
 (defun gist-get-user-password ()
   (or gist-user-password
@@ -381,7 +385,6 @@ and displays the list."
   (goto-char (point-min))
   (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
     (let ((code (string-to-number (match-string 1))))
-      ;;TODO not tested
       (if (and (<= 200 code) (< code 300))
           (message "Delete succeeded")
         (message "Delete failed")))))
