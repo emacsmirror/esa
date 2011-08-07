@@ -36,6 +36,10 @@
 ;; if you are using Emacs 22 or earlier, download the json.el from following url
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
 
+;;; TODO;
+;; * make major mode can delete a gist
+;; 
+
 ;;; Code:
 
 (eval-when-compile (require 'cl))
@@ -54,6 +58,9 @@ git-config(1).")
 (defvar gist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
 posted.")
+
+(defcustom gist-display-date-format "%Y-%m-%d %H:%M"
+  "*Date format displaying in `gist-list' buffer.")
 
 ;;TODO obsolete?
 (defvar gist-supported-modes-alist '((action-script-mode . "as")
@@ -324,7 +331,8 @@ for the gist."
     (list repo
           (gist-fill-string repo 9)
           (gist-fill-string
-           (format-time-string "%Y-%m-%d %H:%M" (gist-parse-time-string updated-at))
+           (format-time-string
+            gist-display-date-format (gist-parse-time-string updated-at))
            20)
           (gist-fill-string visibility 7)
           (or description ""))))
@@ -344,7 +352,7 @@ for the gist."
   (truncate-string-to-width string width nil ?\s))
 
 (defcustom gist-working-directory "~/.gist"
-  "*")
+  "*Working directory where to go gist repository is.")
 
 (defconst gist-repository-url-format "git@gist.github.com:%s.git")
 
@@ -360,18 +368,20 @@ for the gist."
       (cond
        ((not (file-directory-p working-copy))
         (message "Cloning %s..." url)
-        (gist-call-git working-dir `("clone" ,url ,id)))
+        (gist-call-git `("clone" ,url ,id) working-dir))
        (t
         (message "Fetching %s..." url)
-        (gist-call-git working-copy `("pull" ,url))))
+        (gist-call-git `("pull" ,url) working-copy)))
       (dired working-copy))))
 
-(defun gist-call-git (directory args)
-  (let* ((default-directory (file-name-as-directory directory)))
+(defun gist-call-git (args &optional directory)
+  (let* ((default-directory
+           (or (and directory (file-name-as-directory directory))
+               default-directory)))
     (unless (= (apply 
                 'call-process "git" nil (current-buffer) nil
                 args) 0)
-      (error "Unable execute %s %s" args (buffer-string)))))
+      (error "Unable execute %s ->\n%s" args (buffer-string)))))
 
 (defun gist-delete (id)
   (gist-request
