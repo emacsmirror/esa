@@ -96,18 +96,26 @@ posted.")
                                      (tex-mode . "tex")
                                      (xml-mode . "xml")))
 
+(defvar gist-authenticate-function 'gist-basic-authentication)
+
+;; TODO http://developer.github.com/v3/oauth/ 
+;; "Desktop Application Flow" says that using the basic authentication...
+(defun gist-basic-authentication ()
+  (destructuring-bind (user . pass) (github-auth-info-basic)
+    (format "Basic %s" 
+            (base64-encode-string (format "%s:%s" user pass)))))
+
+(defun gist-oauth2-authentication ()
+  (let ((token (github-auth-info-oauth2)))
+    (format "Bearer %s" token)))
+
 (defun gist-request (method url callback &optional json)
-  (destructuring-bind (user . pass) (github-auth-info/v3)
-    (let ((url-request-data (and json (json-encode json)))
-          ;; TODO http://developer.github.com/v3/oauth/ 
-          ;; "Desktop Application Flow" says that using the basic authentication...
-          (url-request-extra-headers 
-           `(("Authorization" . 
-              ,(concat "Basic " 
-                       (base64-encode-string (format "%s:%s" user pass))))))
-          (url-request-method method)
-          (url-max-redirecton -1))
-      (url-retrieve url callback))))
+  (let ((url-request-data (and json (json-encode json)))
+        (url-request-extra-headers 
+         `(("Authorization" . ,(funcall gist-authenticate-function))))
+        (url-request-method method)
+        (url-max-redirecton -1))
+    (url-retrieve url callback)))
 
 ;;;###autoload
 (defun gist-region (begin end &optional private)
@@ -124,7 +132,7 @@ With a prefix argument, makes a private paste."
      "https://api.github.com/gists"
      'gist-created-callback
      `(("description" . ,description)
-       ("public" . ,(if private 'f 't))
+       ("public" . ,(if private :json-false 't))
        ("files" . 
         ((,name . 
                 (("content" . ,(buffer-substring begin end))))))))))
@@ -209,7 +217,26 @@ for the info then sets it to the git config."
 
       (cons user token))))
 
-(defun github-auth-info/v3 ()
+;; 1. Register a oauth application
+;;   https://github.com/account/applications/
+;; 2. Open like following url by web-browser replace URL with registered callback url
+;;    and client-id with CLIENT-ID
+;;  https://github.com/login/oauth/authorize?redirect_uri=**URL**&client_id=**CLIENT-ID**
+;; 3. Copy the code in the redirected url query string.
+;;    ex: http://www.example.com/?code=SOME-CODE
+;; 4. Open like following url by web-browser with replacing query-string like process 2.
+;; https://github.com/login/oauth/access_token?code=**CODE**&redirect_uri=**URL**&client_id=**CLIENT-ID**&client_secret=**CLIENT-SECRET**
+
+(defun github-auth-info-oauth2 ()
+  (let* ((token (or github-token (github-config "oauth-token"))))
+
+    (when (not token)
+      (setq token (read-string "GitHub OAuth token: "))
+      (github-set-config "oauth-token" token))
+
+    token))
+
+(defun github-auth-info-basic ()
   (let* ((user (or github-user (github-config "user")))
          pass)
 
@@ -280,6 +307,7 @@ and displays the list."
       (url-mark-buffer-as-dead (current-buffer))
       (with-current-buffer (get-buffer-create "*gists*")
         (toggle-read-only -1)
+        (setq truncate-lines t)
         (goto-char (point-min))
         (save-excursion
           (kill-region (point-min) (point-max))
@@ -297,8 +325,9 @@ and displays the list."
 (defun gist-insert-list-header ()
   "Creates the header line in the gist list buffer."
   (save-excursion
-    (insert "  ID             Updated                 "
-            "  Visibility   Description                        "
+    (insert "  ID           Updated                "
+            "  Visibility  Description             "
+            (gist-fill-string "" (frame-width))
             "\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
     (overlay-put ov 'face 'header-line))
@@ -308,7 +337,7 @@ and displays the list."
   "Inserts a button that will open the given gist when pressed."
   (let* ((data (gist-parse-gist gist))
          (repo (car data)))
-    (mapc '(lambda (x) (insert (format "  %s    " x))) (cdr data))
+    (mapc '(lambda (x) (insert (format "  %s   " x))) (cdr data))
     (make-text-button (line-beginning-position) (line-end-position)
                       'repo repo
                       'action 'gist-fetch-button
@@ -329,7 +358,7 @@ for the gist."
                     "public"
                   "private")))
     (list repo
-          (gist-fill-string repo 9)
+          (gist-fill-string repo 8)
           (gist-fill-string
            (format-time-string
             gist-display-date-format (gist-parse-time-string updated-at))
