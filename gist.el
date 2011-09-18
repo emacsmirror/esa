@@ -383,34 +383,53 @@ for the gist."
 (defcustom gist-working-directory "~/.gist"
   "*Working directory where to go gist repository is.")
 
+(defcustom gist-working-directory-alist nil
+  "*Alist of gist id as key, value is directory path.")
+
 (defconst gist-repository-url-format "git@gist.github.com:%s.git")
 
 ;;;###autoload
 (defun gist-clone (id)
   (interactive "sGist ID: ")
-  (with-temp-buffer
-    (unless (file-directory-p gist-working-directory)
-      (make-directory gist-working-directory t))
-    (let* ((working-dir gist-working-directory)
-           (url (format gist-repository-url-format id))
-           (working-copy (expand-file-name id working-dir)))
-      (cond
-       ((not (file-directory-p working-copy))
-        (message "Cloning %s..." url)
-        (gist-call-git `("clone" ,url ,id) working-dir))
-       (t
-        (message "Fetching %s..." url)
-        (gist-call-git `("pull" ,url) working-copy)))
-      (dired working-copy))))
+  (let* ((url (format gist-repository-url-format id))
+         (working-copy (gist-working-copy-directory id)))
+    (cond
+     ((not (file-directory-p (expand-file-name ".git" working-copy)))
+      (message "Cloning %s..." url)
+      (gist-start-git `("clone" ,url ".") working-copy))
+     (t
+      (message "Fetching %s..." url)
+      (gist-start-git `("pull" ,url) working-copy)))
+    (dired working-copy)))
 
-(defun gist-call-git (args &optional directory)
-  (let* ((default-directory
+(defun gist-working-copy-directory (id)
+  (let* ((pair (assoc id gist-working-directory-alist))
+         (dir (cond
+               (pair
+                (cdr pair))
+               (t
+                (expand-file-name id gist-working-directory)))))
+    (unless (file-directory-p dir)
+      (make-directory dir t))
+    dir))
+
+(defun gist-start-git (args &optional directory)
+  (let* ((buffer (generate-new-buffer " *gist git* "))
+         (default-directory
            (or (and directory (file-name-as-directory directory))
-               default-directory)))
-    (unless (= (apply 
-                'call-process "git" nil (current-buffer) nil
-                args) 0)
-      (error "Unable execute %s ->\n%s" args (buffer-string)))))
+               default-directory))
+         (proc (apply 'start-process "Gist" buffer "git" args)))
+    (set-process-sentinel 
+     proc (lambda (p e) 
+            (when (memq (process-status p) '(exit signal))
+              (let ((code (process-exit-status p)))
+                (cond
+                 ((eq code 0)
+                  (message "Done fetching gist repository."))
+                 (t
+                  (message "Gist git process finished with %d" code))))
+              (kill-buffer (process-buffer p)))))
+    proc))
 
 (defun gist-delete (id)
   (gist-request
