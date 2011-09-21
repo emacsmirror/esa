@@ -110,7 +110,7 @@ posted.")
     (format "Bearer %s" token)))
 
 (defun gist-request (method url callback &optional json)
-  (let ((url-request-data (and json (json-encode json)))
+  (let ((url-request-data (and json (concat (json-encode json) "\n")))
         (url-request-extra-headers 
          `(("Authorization" . ,(funcall gist-authenticate-function))))
         (url-request-method method)
