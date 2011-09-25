@@ -38,7 +38,6 @@
 
 ;;; TODO;
 ;; * make major mode can delete a gist
-;; 
 
 ;;; Code:
 
@@ -340,13 +339,81 @@ and displays the list."
     (mapc '(lambda (x) (insert (format "  %s   " x))) (cdr data))
     (make-text-button (line-beginning-position) (line-end-position)
                       'repo repo
-                      'action 'gist-fetch-button
-                      'face 'default))
+                      'action 'gist-describe-button
+                      'face 'default
+                      'gist-json gist))
   (insert "\n"))
 
+(defun gist-describe-button (button)
+  (let ((json (button-get button 'gist-json)))
+    (with-help-window (help-buffer)
+      (with-current-buffer standard-output
+        (gist-describe-gist-1 json)))))
+
+(defun gist-describe-insert-button (text action json)
+  (let ((button-text (if (display-graphic-p) text (concat "[" text "]")))
+        (button-face (if (display-graphic-p)
+                         '(:box (:line-width 2 :color "dark grey")
+                                :background "light grey"
+                                :foreground "black")
+                       'link))
+        (id (cdr (assq 'id json))))
+    (insert-text-button button-text 
+                        'face button-face
+                        'follow-link t
+                        'action action
+                        'repo id
+                        'gist-json json)
+    (insert " ")))
+
+(defun gist-describe-gist-1 (gist)
+  (require 'lisp-mnt)
+  (let ((id (cdr (assq 'id gist)))
+        (description (cdr (assq 'description gist)))
+        (url (cdr (assq 'html_url gist)))
+        (updated (cdr (assq 'updated_at gist))))
+    
+    ;; todo public or private
+    (insert "  " (propertize "Description: " 'font-lock-face 'bold) (or description "") "\n")
+    (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
+    (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
+            (format-time-string
+             gist-display-date-format 
+             (gist-parse-time-string updated)) "\n")
+
+    (insert "\n\n")
+
+    (gist-describe-insert-button "Fetch" 'gist-fetch-button gist)
+    (gist-describe-insert-button "Show" nil gist) ;TODO
+    (gist-describe-insert-button "Edit" 'gist-update-button gist)
+    (gist-describe-insert-button "Browser" 'gist-open-web-button gist)
+    (gist-describe-insert-button "Delete" 'gist-delete-button gist)))
+
 (defun gist-fetch-button (button)
-  "Called when a gist button has been pressed. Fetches and displays the gist."
-  (gist-clone (button-get button 'repo)))
+  "Called when a gist [Fetch] button has been pressed.
+Fetches and displays the gist."
+  (gist-fetch (button-get button 'repo)))
+
+(defun gist-delete-button (button)
+  "Called when a gist [Delete] button has been pressed.
+Confirm and delete the gist."
+  (when (y-or-n-p "Really delete this gist? ")
+    (gist-delete (button-get button 'repo))))
+
+(defun gist-update-button (button)
+  "Called when a gist [Edit] button has been pressed.
+Edit the gist description."
+  (let ((json (button-get button 'gist-json))
+        (desc (read-from-minibuffer 
+               "Description: "
+               (cdr (assq 'description json)))))
+    (gist-update (button-get button 'repo) desc)))
+
+(defun gist-open-web-button (button)
+  "Called when a gist [Browse] button has been pressed."
+  (let* ((json (button-get button 'gist-json))
+         (url (cdr (assq 'html_url json))))
+    (browse-url url)))
 
 (defun gist-parse-gist (gist)
   "Returns a list of the gist's attributes for display, given the xml list
@@ -388,19 +455,31 @@ for the gist."
 
 (defconst gist-repository-url-format "git@gist.github.com:%s.git")
 
-;;;###autoload
-(defun gist-clone (id)
-  (interactive "sGist ID: ")
+(defun gist-fetch (id)
   (let* ((url (format gist-repository-url-format id))
          (working-copy (gist-working-copy-directory id)))
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
-      (message "Cloning %s..." url)
+      (message "Cloning %s into working copy..." url)
       (gist-start-git `("clone" ,url ".") working-copy))
      (t
-      (message "Fetching %s..." url)
+      (message "Fetching %s into working copy... " url)
       (gist-start-git `("pull" ,url) working-copy)))
     (dired working-copy)))
+
+(defun gist-delete (id)
+  (gist-request
+   "DELETE"
+   (format "https://api.github.com/gists/%s" id)
+   (gist-simple-receiver "Delete")))
+
+(defun gist-update (id description)
+  (gist-request
+   "PATCH"
+   (format "https://api.github.com/gists/%s" id)
+   (gist-simple-receiver "Update")
+   `(,@(and description 
+            `(("description" . ,description))))))
 
 (defun gist-working-copy-directory (id)
   (let* ((pair (assoc id gist-working-directory-alist))
@@ -431,21 +510,17 @@ for the gist."
               (kill-buffer (process-buffer p)))))
     proc))
 
-(defun gist-delete (id)
-  (gist-request
-   "DELETE"
-   (format "https://api.github.com/gists/%s" id)
-   'gist-delete-retrieved-callback))
-
-(defun gist-delete-retrieved-callback (status)
-  "Called when the list of gists has been retrieved. Parses the result
-and displays the list."
-  (goto-char (point-min))
-  (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
-    (let ((code (string-to-number (match-string 1))))
-      (if (and (<= 200 code) (< code 300))
-          (message "Delete succeeded")
-        (message "Delete failed")))))
+(defun gist-simple-receiver (message)
+  ;; Create a receiver of `gist-request'
+  `(lambda (status)
+     (setq hoge (buffer-string))
+     (goto-char (point-min))
+     (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
+       (let ((code (string-to-number (match-string 1))))
+         (if (and (<= 200 code) (< code 300))
+             (message "%s succeeded" ,message)
+           (message "%s failed" ,message))))))
 
 (provide 'gist)
+
 ;;; gist.el ends here.
