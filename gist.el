@@ -42,6 +42,7 @@
 
 (eval-when-compile (require 'cl))
 (require 'json)
+(require 'url)
 
 (defvar github-user nil
   "If non-nil, will be used as your GitHub username without checking
@@ -371,7 +372,7 @@ and displays the list."
         (description (cdr (assq 'description gist)))
         (url (cdr (assq 'html_url gist)))
         (updated (cdr (assq 'updated_at gist)))
-        (publicp (cdr (assq 'public gist))))
+        (publicp (eq (cdr (assq 'public gist)) t)))
 
     (insert
      (if publicp
@@ -411,10 +412,10 @@ Confirm and delete the gist."
 (defun gist-update-button (button)
   "Called when a gist [Edit] button has been pressed.
 Edit the gist description."
-  (let ((json (button-get button 'gist-json))
-        (desc (read-from-minibuffer
-               "Description: "
-               (cdr (assq 'description json)))))
+  (let* ((json (button-get button 'gist-json))
+         (desc (read-from-minibuffer
+                "Description: "
+                (cdr (assq 'description json)))))
     (gist-update (button-get button 'repo) desc)))
 
 (defun gist-open-web-button (button)
@@ -481,7 +482,6 @@ for the gist."
    (format "https://api.github.com/gists/%s" id)
    (gist-simple-receiver "Delete")))
 
-;;TODO test
 (defun gist-update (id description)
   (gist-request
    "PATCH"
