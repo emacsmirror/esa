@@ -1,4 +1,4 @@
-;; gist.el --- Emacs integration for gist.github.com
+;;; gist.el --- Emacs integration for gist.github.com
 
 ;; Author: Christian Neukirchen <purl.org/net/chneukirchen>
 ;; Maintainer: Chris Wanstrath <chris@ozmm.org>
@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.5
+;; Version: 0.6
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 
@@ -96,11 +96,11 @@ posted.")
 
 (defvar gist-authenticate-function 'gist-basic-authentication)
 
-;; TODO http://developer.github.com/v3/oauth/ 
+;; TODO http://developer.github.com/v3/oauth/
 ;; "Desktop Application Flow" says that using the basic authentication...
 (defun gist-basic-authentication ()
   (destructuring-bind (user . pass) (github-auth-info-basic)
-    (format "Basic %s" 
+    (format "Basic %s"
             (base64-encode-string (format "%s:%s" user pass)))))
 
 (defun gist-oauth2-authentication ()
@@ -109,7 +109,7 @@ posted.")
 
 (defun gist-request (method url callback &optional json)
   (let ((url-request-data (and json (concat (json-encode json) "\n")))
-        (url-request-extra-headers 
+        (url-request-extra-headers
          `(("Authorization" . ,(funcall gist-authenticate-function))))
         (url-request-method method)
         (url-max-redirecton -1))
@@ -131,8 +131,8 @@ With a prefix argument, makes a private paste."
      'gist-created-callback
      `(("description" . ,description)
        ("public" . ,(if private :json-false 't))
-       ("files" . 
-        ((,name . 
+       ("files" .
+        ((,name .
                 (("content" . ,(buffer-substring begin end))))))))))
 
 (defun gist-created-callback (status)
@@ -357,7 +357,7 @@ and displays the list."
                                 :foreground "black")
                        'link))
         (id (cdr (assq 'id json))))
-    (insert-text-button button-text 
+    (insert-text-button button-text
                         'face button-face
                         'follow-link t
                         'action action
@@ -372,19 +372,19 @@ and displays the list."
         (url (cdr (assq 'html_url gist)))
         (updated (cdr (assq 'updated_at gist)))
         (publicp (cdr (assq 'public gist))))
-    
-    (insert 
+
+    (insert
      (if publicp
-         (propertize "Public Gist" 
+         (propertize "Public Gist"
                      'font-lock-face `(bold underline ,font-lock-warning-face))
-       (propertize "Private Gist" 
+       (propertize "Private Gist"
                    'font-lock-face '(bold underline)))
      "\n")
     (insert "  " (propertize "Description: " 'font-lock-face 'bold) (or description "") "\n")
     (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
     (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
             (format-time-string
-             gist-display-date-format 
+             gist-display-date-format
              (gist-parse-time-string updated)) "\n")
 
     (insert "\n\n")
@@ -412,7 +412,7 @@ Confirm and delete the gist."
   "Called when a gist [Edit] button has been pressed.
 Edit the gist description."
   (let ((json (button-get button 'gist-json))
-        (desc (read-from-minibuffer 
+        (desc (read-from-minibuffer
                "Description: "
                (cdr (assq 'description json)))))
     (gist-update (button-get button 'repo) desc)))
@@ -487,7 +487,7 @@ for the gist."
    "PATCH"
    (format "https://api.github.com/gists/%s" id)
    (gist-simple-receiver "Update")
-   `(,@(and description 
+   `(,@(and description
             `(("description" . ,description))))))
 
 (defun gist-working-copy-directory (id)
@@ -507,8 +507,8 @@ for the gist."
            (or (and directory (file-name-as-directory directory))
                default-directory))
          (proc (apply 'start-process "Gist" buffer "git" args)))
-    (set-process-sentinel 
-     proc (lambda (p e) 
+    (set-process-sentinel
+     proc (lambda (p e)
             (when (memq (process-status p) '(exit signal))
               (let ((code (process-exit-status p)))
                 (cond
