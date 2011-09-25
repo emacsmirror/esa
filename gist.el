@@ -37,7 +37,6 @@
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
 
 ;;; TODO;
-;; * make major mode can delete a gist
 
 ;;; Code:
 
@@ -371,9 +370,16 @@ and displays the list."
   (let ((id (cdr (assq 'id gist)))
         (description (cdr (assq 'description gist)))
         (url (cdr (assq 'html_url gist)))
-        (updated (cdr (assq 'updated_at gist))))
+        (updated (cdr (assq 'updated_at gist)))
+        (publicp (cdr (assq 'public gist))))
     
-    ;; todo public or private
+    (insert 
+     (if publicp
+         (propertize "Public Gist" 
+                     'font-lock-face `(bold underline ,font-lock-warning-face))
+       (propertize "Private Gist" 
+                   'font-lock-face '(bold underline)))
+     "\n")
     (insert "  " (propertize "Description: " 'font-lock-face 'bold) (or description "") "\n")
     (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
     (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
@@ -383,11 +389,13 @@ and displays the list."
 
     (insert "\n\n")
 
-    (gist-describe-insert-button "Fetch" 'gist-fetch-button gist)
-    (gist-describe-insert-button "Show" nil gist) ;TODO
-    (gist-describe-insert-button "Edit" 'gist-update-button gist)
-    (gist-describe-insert-button "Browser" 'gist-open-web-button gist)
-    (gist-describe-insert-button "Delete" 'gist-delete-button gist)))
+    (gist-describe-insert-button "Fetch Repository" 'gist-fetch-button gist)
+    (gist-describe-insert-button "Browse" 'gist-open-web-button gist)
+
+    (insert "\n\n")
+
+    (gist-describe-insert-button "Edit Description" 'gist-update-button gist)
+    (gist-describe-insert-button "Delete Gist" 'gist-delete-button gist)))
 
 (defun gist-fetch-button (button)
   "Called when a gist [Fetch] button has been pressed.
@@ -473,6 +481,7 @@ for the gist."
    (format "https://api.github.com/gists/%s" id)
    (gist-simple-receiver "Delete")))
 
+;;TODO test
 (defun gist-update (id description)
   (gist-request
    "PATCH"
@@ -513,7 +522,6 @@ for the gist."
 (defun gist-simple-receiver (message)
   ;; Create a receiver of `gist-request'
   `(lambda (status)
-     (setq hoge (buffer-string))
      (goto-char (point-min))
      (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
