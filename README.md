@@ -8,7 +8,7 @@ Install
 =======
 
     $ cd ~/.emacs.d/vendor
-    $ git clone git://github.com/defunkt/gist.el.git
+    $ git clone git://github.com/mhayashi1120/gist.el.git
 
 In your emacs config:
 
@@ -53,6 +53,6 @@ See <http://github.com/blog/180-local-github-config>
 Meta
 ====
 
-* Code: `git clone git://github.com/defunkt/gist.el.git`
-* Home: <http://github.com/defunkt/gist.el>
-* Bugs: <http://github.com/defunkt/gist.el/issues>
+* Code: `git clone git://github.com/mhayashi1120/gist.el.git`
+* Home: <http://github.com/mhayashi1120/gist.el>
+* Bugs: <http://github.com/mhayashi1120/gist.el/issues>

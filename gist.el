@@ -37,6 +37,8 @@
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
 
 ;;; TODO;
+;; * defgroup
+;; * customize variables
 
 ;;; Code:
 
@@ -51,51 +53,18 @@ git-config(1).")
   "If non-nil, will be used as your GitHub token without checking
 git-config(1).")
 
-(defvar gist-user-password nil
+(defcustom gist-user-password nil
   "If non-nil, will be used as your GitHub password without reading.")
 
-(defvar gist-view-gist nil
+(defcustom gist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
 posted.")
 
 (defcustom gist-display-date-format "%Y-%m-%d %H:%M"
-  "*Date format displaying in `gist-list' buffer.")
+  "Date format displaying in `gist-list' buffer.")
 
-;;TODO obsolete?
-(defvar gist-supported-modes-alist '((action-script-mode . "as")
-                                     (c-mode . "c")
-                                     (c++-mode . "cpp")
-                                     (clojure-mode . "clj")
-                                     (common-lisp-mode . "lisp")
-                                     (css-mode . "css")
-                                     (diff-mode . "diff")
-                                     (emacs-lisp-mode . "el")
-                                     (erlang-mode . "erl")
-                                     (haskell-mode . "hs")
-                                     (html-mode . "html")
-                                     (io-mode . "io")
-                                     (java-mode . "java")
-                                     (javascript-mode . "js")
-                                     (jde-mode . "java")
-                                     (js2-mode . "js")
-                                     (lua-mode . "lua")
-                                     (ocaml-mode . "ml")
-                                     (objective-c-mode . "m")
-                                     (perl-mode . "pl")
-                                     (php-mode . "php")
-                                     (python-mode . "py")
-                                     (ruby-mode . "rb")
-                                     (text-mode . "txt")
-                                     (scala-mode . "scala")
-                                     (sql-mode . "sql")
-                                     (scheme-mode . "scm")
-                                     (smalltalk-mode . "st")
-                                     (sh-mode . "sh")
-                                     (tcl-mode . "tcl")
-                                     (tex-mode . "tex")
-                                     (xml-mode . "xml")))
-
-(defvar gist-authenticate-function 'gist-basic-authentication)
+(defcustom gist-authenticate-function 'gist-basic-authentication
+  "Authentication function symbol.")
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; "Desktop Application Flow" says that using the basic authentication...
