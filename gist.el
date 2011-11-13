@@ -82,7 +82,7 @@ posted.")
         (url-request-extra-headers
          `(("Authorization" . ,(funcall gist-authenticate-function))))
         (url-request-method method)
-        (url-max-redirecton -1))
+        (url-max-redirection -1))
     (url-retrieve url callback)))
 
 ;;;###autoload
