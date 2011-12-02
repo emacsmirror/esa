@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.6.1
+;; Version: 0.6.2
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 
@@ -243,18 +243,18 @@ Copies the URL into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "P")
-  (condition-case nil
-      (gist-region (point) (mark) private)
-    (mark-inactive (gist-buffer private))))
+  (if (gist-region-active-p)
+      (gist-region (region-beginning) (region-end) private)
+    (gist-buffer private)))
 
 ;;;###autoload
 (defun gist-region-or-buffer-private ()
   "Post either the current region, or if mark is not set, the current buffer as a new private paste at gist.github.com
 Copies the URL into the kill ring."
   (interactive)
-  (condition-case nil
-      (gist-region-private (point) (mark))
-    (mark-inactive (gist-buffer-private))))
+  (if (gist-region-active-p)
+      (gist-region-private (region-beginning) (region-end))
+    (gist-buffer-private)))
 
 ;;;###autoload
 (defun gist-list ()
@@ -265,6 +265,12 @@ Copies the URL into the kill ring."
    "GET"
    "https://api.github.com/gists"
    'gist-lists-retrieved-callback))
+
+(defun gist-region-active-p ()
+  (if (functionp 'region-active-p)
+      ;; trick for suppressing elint warning
+      (funcall 'region-active-p)
+    (and transient-mark-mode mark-active)))
 
 (defun gist-lists-retrieved-callback (status)
   "Called when the list of gists has been retrieved. Parses the result
