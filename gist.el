@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.6.2
+;; Version: 0.6.3
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 
@@ -38,7 +38,6 @@
 
 ;;; TODO;
 ;; * defgroup
-;; * customize variables
 
 ;;; Code:
 
@@ -54,17 +53,21 @@ git-config(1).")
 git-config(1).")
 
 (defcustom gist-user-password nil
-  "If non-nil, will be used as your GitHub password without reading.")
+  "If non-nil, will be used as your GitHub password without reading."
+  :type 'string)
 
 (defcustom gist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
-posted.")
+posted."
+  :type 'boolean)
 
 (defcustom gist-display-date-format "%Y-%m-%d %H:%M"
-  "Date format displaying in `gist-list' buffer.")
+  "Date format displaying in `gist-list' buffer."
+  :type 'string)
 
 (defcustom gist-authenticate-function 'gist-basic-authentication
-  "Authentication function symbol.")
+  "Authentication function symbol."
+  :type 'function)
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; "Desktop Application Flow" says that using the basic authentication...
@@ -375,7 +378,10 @@ and displays the list."
 
 (defun gist-fetch-button (button)
   "Called when a gist [Fetch] button has been pressed.
-Fetches and displays the gist."
+Fetche gist repository and open the directory.
+
+See `gist-working-directory-alist' document to fetch repository
+into the user selected directory."
   (gist-fetch (button-get button 'repo)))
 
 (defun gist-delete-button (button)
@@ -426,16 +432,24 @@ for the gist."
          (hour (funcall getter 3))
          (min (funcall getter 4))
          (sec (funcall getter 5)))
-    (encode-time sec min hour day month year)))
+    (encode-time sec min hour day month year 0)))
 
 (defun gist-fill-string (string width)
   (truncate-string-to-width string width nil ?\s))
 
 (defcustom gist-working-directory "~/.gist"
-  "*Working directory where to go gist repository is.")
+  "*Working directory where to go gist repository is."
+  :type 'directory)
 
 (defcustom gist-working-directory-alist nil
-  "*Alist of gist id as key, value is directory path.")
+  "*Alist of gist id as key, value is directory path.
+
+Example:
+\(setq gist-working-directory-alist
+      `((\"1080701\" . \"~/mygist/Emacs-nativechecker\")))
+"
+  :type '(alist :key-type string
+                :value-type directory))
 
 (defconst gist-repository-url-format "git@gist.github.com:%s.git")
 
