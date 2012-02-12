@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.6.3
+;; Version: 0.6.4
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 
@@ -148,19 +148,21 @@ Copies the URL into the kill ring."
 
 (defun github-config (key)
   "Returns a GitHub specific value from the global Git config."
-  (let ((strip (lambda (string)
-                 (if (> (length string) 0)
-                     ;;strip newline
-                     (substring string 0 -1))))
-        (git (executable-find "git")))
-  (funcall strip (shell-command-to-string
-                  (format "%s config --global github.%s" git key)))))
+  (let* ((val (gist-command-to-string
+               "config" "--global" (format "github.%s" key))))
+    (if (string-match "\n+$" val)
+        (substring val 0 (match-beginning 0))
+      val)))
 
 (defun github-set-config (key value)
   "Sets a GitHub specific value to the global Git config."
-  (let ((git (executable-find "git")))
-    (shell-command-to-string
-     (format "%s config --global github.%s %s" git key value))))
+  (gist-command-to-string 
+   "config" "--global" (format "github.%s" key) value))
+
+(defun gist-command-to-string (&rest args)
+  (with-output-to-string
+    (with-current-buffer standard-output
+      (apply 'call-process "git" nil t nil args))))
 
 ;; FIXME obsoleted auth function?
 (defun github-auth-info ()
@@ -190,12 +192,12 @@ for the info then sets it to the git config."
 
 ;; 1. Register a oauth application
 ;;   https://github.com/account/applications/
-;; 2. Open like following url by web-browser replace URL with registered callback url
+;; 2. Open url like following by web-browser, and replace URL with registered callback url
 ;;    and client-id with CLIENT-ID
 ;;  https://github.com/login/oauth/authorize?redirect_uri=**URL**&client_id=**CLIENT-ID**
 ;; 3. Copy the code in the redirected url query string.
 ;;    ex: http://www.example.com/?code=SOME-CODE
-;; 4. Open like following url by web-browser with replacing query-string like process 2.
+;; 4. Open url like following by web-browser, and replace query-string like step 2.
 ;; https://github.com/login/oauth/access_token?code=**CODE**&redirect_uri=**URL**&client_id=**CLIENT-ID**&client_secret=**CLIENT-SECRET**
 
 (defun github-auth-info-oauth2 ()
