@@ -156,7 +156,7 @@ Copies the URL into the kill ring."
 
 (defun github-set-config (key value)
   "Sets a GitHub specific value to the global Git config."
-  (gist-command-to-string 
+  (gist-command-to-string
    "config" "--global" (format "github.%s" key) value))
 
 (defun gist-command-to-string (&rest args)
