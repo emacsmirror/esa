@@ -37,7 +37,6 @@
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
 
 ;;; TODO;
-;; * defgroup
 
 ;;; Code:
 
