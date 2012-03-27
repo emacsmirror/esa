@@ -45,6 +45,10 @@
 (require 'json)
 (require 'url)
 
+(defgroup gist nil
+  "Simple gist application."
+  :group 'applications)
+
 (defvar github-user nil
   "If non-nil, will be used as your GitHub username without checking
 git-config(1).")
@@ -54,20 +58,24 @@ git-config(1).")
 
 (defcustom gist-user-password nil
   "If non-nil, will be used as your GitHub password without reading."
-  :type 'string)
+  :type 'string
+  :group 'gist)
 
 (defcustom gist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
 posted."
-  :type 'boolean)
+  :type 'boolean
+  :group 'gist)
 
 (defcustom gist-display-date-format "%Y-%m-%d %H:%M"
   "Date format displaying in `gist-list' buffer."
-  :type 'string)
+  :type 'string
+  :group 'gist)
 
 (defcustom gist-authenticate-function 'gist-basic-authentication
   "Authentication function symbol."
-  :type 'function)
+  :type 'function
+  :group 'gist)
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; "Desktop Application Flow" says that using the basic authentication...
@@ -282,7 +290,9 @@ Copies the URL into the kill ring."
 and displays the list."
   (goto-char (point-min))
   (when (re-search-forward "^\r?$" nil t)
-    (let ((json (json-read)))
+    (let* ((str (buffer-substring (point) (point-max)))
+           (decoded (decode-coding-string str 'utf-8))
+           (json (json-read-from-string decoded)))
       (url-mark-buffer-as-dead (current-buffer))
       (with-current-buffer (get-buffer-create "*gists*")
         (toggle-read-only -1)
@@ -294,7 +304,7 @@ and displays the list."
           (mapc 'gist-insert-gist-link json)
 
           ;; remove the extra newline at the end
-          (delete-backward-char 1))
+          (delete-char -1))
 
         ;; skip header
         (forward-line)
@@ -437,7 +447,7 @@ for the gist."
     (encode-time sec min hour day month year 0)))
 
 (defun gist-fill-string (string width)
-  (truncate-string-to-width string width nil ?\s))
+  (truncate-string-to-width string width nil ?\s "..."))
 
 (defcustom gist-working-directory "~/.gist"
   "*Working directory where to go gist repository is."
