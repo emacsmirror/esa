@@ -118,6 +118,10 @@ Copies the URL into the kill ring.
 With a prefix argument, makes a private paste."
   (interactive "r\nP")
   (let* ((description (read-from-minibuffer "Description: "))
+         ;; cause of privacy reason,
+         ;; set filename as empty if call from gist-*-region function.
+         ;; I think that highly expected upload just the region, 
+         ;; not a filename.
          (filename (or name "")))
     (gist-request
      "POST"
@@ -126,11 +130,8 @@ With a prefix argument, makes a private paste."
      `(("description" . ,description)
        ("public" . ,(if private :json-false 't))
        ("files" .
-        ;; cause of privacy reason,
-        ;; set filename as empty if call from gist-*-region function
-        ;; highly expected upload just the region, not a filename.
         ((,filename .
-                (("content" . ,(buffer-substring begin end))))))))))
+                    (("content" . ,(buffer-substring begin end))))))))))
 
 (defun gist-single-file-name ()
   (let* ((file (or (buffer-file-name) (buffer-name)))
