@@ -1,15 +1,16 @@
 ;;; gist.el --- Emacs integration for gist.github.com
 
 ;; Author: Christian Neukirchen <purl.org/net/chneukirchen>
-;; Maintainer: Chris Wanstrath <chris@ozmm.org>
+;; Maintainer: Masahiro Hayashi <mhayashi1120@gmail.com>
 ;; Contributors:
 ;; Will Farrington <wcfarrington@gmail.com>
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.6.5
+;; Version: 0.6.6
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
+;; Package-Requires: ((json "1.2.0"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -76,6 +77,20 @@ posted."
   :type 'function
   :group 'gist)
 
+(defvar gist-list-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "g" 'revert-buffer)
+    (define-key map "p" 'previous-line)
+    (define-key map "n" 'forward-line)
+    map))
+
+(define-derived-mode gist-list-mode fundamental-mode "Gists"
+  "Show your gist list"
+  (setq buffer-read-only t)
+  (setq truncate-lines t)
+  (setq revert-buffer-function 'gist-list-revert-buffer)
+  (use-local-map gist-list-mode-map))
+
 ;; TODO http://developer.github.com/v3/oauth/
 ;; "Desktop Application Flow" says that using the basic authentication...
 (defun gist-basic-authentication ()
@@ -96,15 +111,14 @@ posted."
     (url-retrieve url callback)))
 
 ;;;###autoload
-(defun gist-region (begin end &optional private)
+(defun gist-region (begin end &optional private name)
   "Post the current region as a new paste at gist.github.com
 Copies the URL into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "r\nP")
-  (let* ((file (or (buffer-file-name) (buffer-name)))
-         (name (file-name-nondirectory file))
-         (description (read-from-minibuffer "Description: ")))
+  (let* ((description (read-from-minibuffer "Description: "))
+         (filename (or name "")))
     (gist-request
      "POST"
      "https://api.github.com/gists"
@@ -112,8 +126,16 @@ With a prefix argument, makes a private paste."
      `(("description" . ,description)
        ("public" . ,(if private :json-false 't))
        ("files" .
-        ((,name .
+        ;; cause of privacy reason,
+        ;; set filename as empty if call from gist-*-region function
+        ;; highly expected upload just the region, not a filename.
+        ((,filename .
                 (("content" . ,(buffer-substring begin end))))))))))
+
+(defun gist-single-file-name ()
+  (let* ((file (or (buffer-file-name) (buffer-name)))
+         (name (file-name-nondirectory file)))
+    name))
 
 (defun gist-created-callback (status)
   (let ((location (save-excursion
@@ -145,13 +167,6 @@ should both be strings."
      (concat (url-hexify-string (car param)) "="
              (url-hexify-string (cdr param))))
    params "&"))
-
-;;;###autoload
-(defun gist-region-private (begin end)
-  "Post the current region as a new private paste at gist.github.com
-Copies the URL into the kill ring."
-  (interactive "r")
-  (gist-region begin end t))
 
 (defun github-config (key)
   "Returns a GitHub specific value from the global Git config."
@@ -233,20 +248,29 @@ for the info then sets it to the git config."
       (read-passwd "Password: ")))
 
 ;;;###autoload
+(defun gist-region-private (begin end)
+  "Post the current region as a new private paste at gist.github.com
+Copies the URL into the kill ring."
+  (interactive "r")
+  (gist-region begin end t))
+
+;;;###autoload
 (defun gist-buffer (&optional private)
   "Post the current buffer as a new paste at gist.github.com.
 Copies the URL into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "P")
-  (gist-region (point-min) (point-max) private))
+  (gist-region (point-min) (point-max)
+               private (gist-single-file-name)))
 
 ;;;###autoload
 (defun gist-buffer-private ()
   "Post the current buffer as a new private paste at gist.github.com.
 Copies the URL into the kill ring."
   (interactive)
-  (gist-region-private (point-min) (point-max)))
+  (gist-region (point-min) (point-max)
+               t (gist-single-file-name)))
 
 ;;;###autoload
 (defun gist-region-or-buffer (&optional private)
@@ -265,8 +289,8 @@ With a prefix argument, makes a private paste."
 Copies the URL into the kill ring."
   (interactive)
   (if (gist-region-active-p)
-      (gist-region-private (region-beginning) (region-end))
-    (gist-buffer-private)))
+      (gist-region (region-beginning) (region-end) t)
+    (gist-buffer t)))
 
 ;;;###autoload
 (defun gist-list ()
@@ -277,6 +301,10 @@ Copies the URL into the kill ring."
    "GET"
    "https://api.github.com/gists"
    'gist-lists-retrieved-callback))
+
+(defun gist-list-revert-buffer (&rest ignore)
+  ;; redraw gist list
+  (gist-list))
 
 (defun gist-region-active-p ()
   (if (functionp 'region-active-p)
@@ -294,20 +322,19 @@ and displays the list."
            (json (json-read-from-string decoded)))
       (url-mark-buffer-as-dead (current-buffer))
       (with-current-buffer (get-buffer-create "*gists*")
-        (toggle-read-only -1)
-        (setq truncate-lines t)
+        (gist-list-mode)
         (goto-char (point-min))
         (save-excursion
-          (kill-region (point-min) (point-max))
-          (gist-insert-list-header)
-          (mapc 'gist-insert-gist-link json)
+          (let ((inhibit-read-only t))
+            (delete-region (point-min) (point-max))
+            (gist-insert-list-header)
+            (mapc 'gist-insert-gist-link json)
 
-          ;; remove the extra newline at the end
-          (delete-char -1))
+            ;; remove the extra newline at the end
+            (delete-char -1)))
 
         ;; skip header
         (forward-line)
-        (toggle-read-only t)
         (set-window-buffer nil (current-buffer))))))
 
 (defun gist-insert-list-header ()
