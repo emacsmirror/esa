@@ -120,7 +120,7 @@ With a prefix argument, makes a private paste."
   (let* ((description (read-from-minibuffer "Description: "))
          ;; cause of privacy reason,
          ;; set filename as empty if call from gist-*-region function.
-         ;; I think that highly expected upload just the region, 
+         ;; I think that highly expected upload just the region,
          ;; not a filename.
          (filename (or name "")))
     (gist-request
