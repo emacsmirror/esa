@@ -144,27 +144,6 @@ With a prefix argument, makes a private paste."
         ((,filename .
                     (("content" . ,(buffer-substring begin end))))))))))
 
-(defun gist-created-callback (status url json)
-  (let ((location (save-excursion
-                    (goto-char (point-min))
-                    (and (re-search-forward "^Location: \\(.*\\)" nil t)
-                         (match-string 1))))
-        (http-url))
-    (cond
-     ;; check redirected location indicate public/private gist url
-     ((and (stringp location)
-           (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" location))
-      (let ((id (match-string 1 location)))
-        (setq http-url (format "https://gist.github.com/%s" id))
-        (message "Paste created: %s" http-url)
-        (when gist-view-gist
-          (browse-url http-url))))
-     (t
-      (message "Paste is failed")))
-    (when http-url
-      (kill-new http-url))
-    (url-mark-buffer-as-dead (current-buffer))))
-
 (defun gist-single-file-name ()
   (let* ((file (or (buffer-file-name) (buffer-name)))
          (name (file-name-nondirectory file)))
@@ -350,31 +329,6 @@ Copies the URL into the kill ring."
       ;; trick for suppressing elint warning
       (funcall 'region-active-p)
     (and transient-mark-mode mark-active)))
-
-(defun gist-lists-retrieved-callback (status url params)
-  "Called when the list of gists has been retrieved. Parses the result
-and displays the list."
-  (goto-char (point-min))
-  (when (re-search-forward "^\r?$" nil t)
-    (let* ((str (buffer-substring (point) (point-max)))
-           (decoded (decode-coding-string str 'utf-8))
-           (json (json-read-from-string decoded))
-           (page (cdr (assoc "page" params))))
-      (url-mark-buffer-as-dead (current-buffer))
-      (with-current-buffer (get-buffer-create "*gists*")
-        (gist-list-mode)
-        (goto-char (point-min))
-        (save-excursion
-          (let ((inhibit-read-only t))
-            (delete-region (point-min) (point-max))
-            (gist-insert-list-header)
-            (mapc 'gist-insert-gist-link json)))
-        (setq gist-list-current-page page)
-
-        ;; skip header
-        (forward-line)
-        (set-window-buffer nil (current-buffer)))))
-  (url-mark-buffer-as-dead (current-buffer)))
 
 (defun gist-insert-list-header ()
   "Creates the header line in the gist list buffer."
@@ -595,6 +549,52 @@ Example:
              (message "%s succeeded" ,message)
            (message "%s failed" ,message))))
      (url-mark-buffer-as-dead (current-buffer))))
+
+(defun gist-created-callback (status url json)
+  (let ((location (save-excursion
+                    (goto-char (point-min))
+                    (and (re-search-forward "^Location: \\(.*\\)" nil t)
+                         (match-string 1))))
+        (http-url))
+    (cond
+     ;; check redirected location indicate public/private gist url
+     ((and (stringp location)
+           (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" location))
+      (let ((id (match-string 1 location)))
+        (setq http-url (format "https://gist.github.com/%s" id))
+        (message "Paste created: %s" http-url)
+        (when gist-view-gist
+          (browse-url http-url))))
+     (t
+      (message "Paste is failed")))
+    (when http-url
+      (kill-new http-url))
+    (url-mark-buffer-as-dead (current-buffer))))
+
+(defun gist-lists-retrieved-callback (status url params)
+  "Called when the list of gists has been retrieved. Parses the result
+and displays the list."
+  (goto-char (point-min))
+  (when (re-search-forward "^\r?$" nil t)
+    (let* ((str (buffer-substring (point) (point-max)))
+           (decoded (decode-coding-string str 'utf-8))
+           (json (json-read-from-string decoded))
+           (page (cdr (assoc "page" params))))
+      (url-mark-buffer-as-dead (current-buffer))
+      (with-current-buffer (get-buffer-create "*gists*")
+        (gist-list-mode)
+        (goto-char (point-min))
+        (save-excursion
+          (let ((inhibit-read-only t))
+            (delete-region (point-min) (point-max))
+            (gist-insert-list-header)
+            (mapc 'gist-insert-gist-link json)))
+        (setq gist-list-current-page page)
+
+        ;; skip header
+        (forward-line)
+        (set-window-buffer nil (current-buffer)))))
+  (url-mark-buffer-as-dead (current-buffer)))
 
 (provide 'gist)
 
