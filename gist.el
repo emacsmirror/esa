@@ -77,6 +77,27 @@ posted."
   :type 'function
   :group 'gist)
 
+(defcustom gist-list-per-page 20
+  "Number of gist to display a page."
+  :type 'number
+  :group 'gist)
+
+(defcustom gist-working-directory "~/.gist"
+  "*Working directory where to go gist repository is."
+  :type 'directory
+  :group 'gist)
+
+(defcustom gist-working-directory-alist nil
+  "*Alist of gist id as key, value is directory path.
+
+Example:
+\(setq gist-working-directory-alist
+      `((\"1080701\" . \"~/mygist/Emacs-nativechecker\")))
+"
+  :type '(alist :key-type string
+                :value-type directory)
+  :group 'gist)
+
 (defvar gist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
@@ -86,11 +107,6 @@ posted."
 
 (defvar gist-list-current-page nil)
 (make-variable-buffer-local 'gist-list-current-page)
-
-(defcustom gist-list-per-page 20
-  "Number of gist to display a page."
-  :type 'number
-  :group 'gist)
 
 (define-derived-mode gist-list-mode fundamental-mode "Gists"
   "Show your gist list"
@@ -153,7 +169,7 @@ With a prefix argument, makes a private paste."
   "Returns a query string constructed from PARAMS, which should be
 a list with elements of the form (KEY . VALUE). KEY and VALUE
 should both be strings."
-  (let ((hexify 
+  (let ((hexify
          (lambda (x)
            (url-hexify-string
             (with-output-to-string (princ x))))))
@@ -292,8 +308,9 @@ Copies the URL into the kill ring."
 (defun gist-list (&optional page)
   "Displays a list of all of the current user's gists in a new buffer."
   (interactive
-   (let ((n (when current-prefix-arg (read-number "Page: "))))
-     (list n)))
+   (let ((num (when current-prefix-arg
+                (read-number "Page: "))))
+     (list num)))
   (message "Retrieving list of your gists...")
   (gist-request
    "GET"
@@ -443,8 +460,8 @@ for the gist."
         (updated-at (cdr (assq 'updated_at gist)))
         (description (cdr (assq 'description gist)))
         (visibility (if (eq (cdr (assq 'public gist)) 't)
-                    "public"
-                  "private")))
+                        "public"
+                      "private")))
     (list repo
           (gist-fill-string repo 8)
           (gist-fill-string
@@ -467,20 +484,6 @@ for the gist."
 
 (defun gist-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
-
-(defcustom gist-working-directory "~/.gist"
-  "*Working directory where to go gist repository is."
-  :type 'directory)
-
-(defcustom gist-working-directory-alist nil
-  "*Alist of gist id as key, value is directory path.
-
-Example:
-\(setq gist-working-directory-alist
-      `((\"1080701\" . \"~/mygist/Emacs-nativechecker\")))
-"
-  :type '(alist :key-type string
-                :value-type directory))
 
 (defconst gist-repository-url-format "git@gist.github.com:%s.git")
 
