@@ -80,9 +80,17 @@ posted."
 (defvar gist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
-    (define-key map "p" 'previous-line)
-    (define-key map "n" 'forward-line)
+    (define-key map "p" 'gist-list-prev-gist)
+    (define-key map "n" 'gist-list-next-gist)
     map))
+
+(defvar gist-list-current-page nil)
+(make-variable-buffer-local 'gist-list-current-page)
+
+(defcustom gist-list-per-page 20
+  "Number of gist to display a page."
+  :type 'number
+  :group 'gist)
 
 (define-derived-mode gist-list-mode fundamental-mode "Gists"
   "Show your gist list"
@@ -102,13 +110,16 @@ posted."
   (let ((token (github-auth-info-oauth2)))
     (format "Bearer %s" token)))
 
-(defun gist-request (method url callback &optional json)
-  (let ((url-request-data (and json (concat (json-encode json) "\n")))
-        (url-request-extra-headers
-         `(("Authorization" . ,(funcall gist-authenticate-function))))
-        (url-request-method method)
-        (url-max-redirection -1))
-    (url-retrieve url callback)))
+(defun gist-request (method url callback &optional json-or-params)
+  (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
+         (params (and (member method '("GET" "DELETE")) json-or-params))
+         (url-request-data (and json (concat (json-encode json) "\n")))
+         (url-request-extra-headers
+          `(("Authorization" . ,(funcall gist-authenticate-function))))
+         (url-request-method method)
+         (url-max-redirection -1)
+         (url (if params (concat url "?" (gist-make-query-string params)) url)))
+    (url-retrieve url callback (list url json-or-params))))
 
 ;;;###autoload
 (defun gist-region (begin end &optional private name)
@@ -133,12 +144,7 @@ With a prefix argument, makes a private paste."
         ((,filename .
                     (("content" . ,(buffer-substring begin end))))))))))
 
-(defun gist-single-file-name ()
-  (let* ((file (or (buffer-file-name) (buffer-name)))
-         (name (file-name-nondirectory file)))
-    name))
-
-(defun gist-created-callback (status)
+(defun gist-created-callback (status url json)
   (let ((location (save-excursion
                     (goto-char (point-min))
                     (and (re-search-forward "^Location: \\(.*\\)" nil t)
@@ -159,15 +165,25 @@ With a prefix argument, makes a private paste."
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
 
+(defun gist-single-file-name ()
+  (let* ((file (or (buffer-file-name) (buffer-name)))
+         (name (file-name-nondirectory file)))
+    name))
+
 (defun gist-make-query-string (params)
   "Returns a query string constructed from PARAMS, which should be
 a list with elements of the form (KEY . VALUE). KEY and VALUE
 should both be strings."
-  (mapconcat
-   (lambda (param)
-     (concat (url-hexify-string (car param)) "="
-             (url-hexify-string (cdr param))))
-   params "&"))
+  (let ((hexify 
+         (lambda (x)
+           (url-hexify-string
+            (with-output-to-string (princ x))))))
+    (mapconcat
+     (lambda (param)
+       (concat (funcall hexify (car param))
+               "="
+               (funcall hexify (cdr param))))
+     params "&")))
 
 (defun github-config (key)
   "Returns a GitHub specific value from the global Git config."
@@ -294,14 +310,36 @@ Copies the URL into the kill ring."
     (gist-buffer t)))
 
 ;;;###autoload
-(defun gist-list ()
+(defun gist-list (&optional page)
   "Displays a list of all of the current user's gists in a new buffer."
-  (interactive)
+  (interactive
+   (let ((n (when current-prefix-arg (read-number "Page: "))))
+     (list n)))
   (message "Retrieving list of your gists...")
   (gist-request
    "GET"
    "https://api.github.com/gists"
-   'gist-lists-retrieved-callback))
+   'gist-lists-retrieved-callback
+   `(("per_page" . ,(or gist-list-per-page 20))
+     ("page" . ,(max (or page 1) 1)))))
+
+(defun gist-list-next-gist ()
+  "Move to next line or next page."
+  (interactive)
+  (forward-line 1)
+  (when (eobp)
+    (gist-list (1+ gist-list-current-page))
+    ;; point is already move to first gist of this page
+    ))
+
+(defun gist-list-prev-gist ()
+  "Move to previous line or previous page."
+  (interactive)
+  (forward-line -1)
+  (when (and (bobp) (> gist-list-current-page 1))
+    (gist-list (1- gist-list-current-page))
+    ;; TODO goto last gist of this page
+    ))
 
 (defun gist-list-revert-buffer (&rest ignore)
   ;; redraw gist list
@@ -313,14 +351,15 @@ Copies the URL into the kill ring."
       (funcall 'region-active-p)
     (and transient-mark-mode mark-active)))
 
-(defun gist-lists-retrieved-callback (status)
+(defun gist-lists-retrieved-callback (status url params)
   "Called when the list of gists has been retrieved. Parses the result
 and displays the list."
   (goto-char (point-min))
   (when (re-search-forward "^\r?$" nil t)
     (let* ((str (buffer-substring (point) (point-max)))
            (decoded (decode-coding-string str 'utf-8))
-           (json (json-read-from-string decoded)))
+           (json (json-read-from-string decoded))
+           (page (cdr (assoc "page" params))))
       (url-mark-buffer-as-dead (current-buffer))
       (with-current-buffer (get-buffer-create "*gists*")
         (gist-list-mode)
@@ -329,14 +368,13 @@ and displays the list."
           (let ((inhibit-read-only t))
             (delete-region (point-min) (point-max))
             (gist-insert-list-header)
-            (mapc 'gist-insert-gist-link json)
-
-            ;; remove the extra newline at the end
-            (delete-char -1)))
+            (mapc 'gist-insert-gist-link json)))
+        (setq gist-list-current-page page)
 
         ;; skip header
         (forward-line)
-        (set-window-buffer nil (current-buffer))))))
+        (set-window-buffer nil (current-buffer)))))
+  (url-mark-buffer-as-dead (current-buffer)))
 
 (defun gist-insert-list-header ()
   "Creates the header line in the gist list buffer."
@@ -547,15 +585,16 @@ Example:
               (kill-buffer (process-buffer p)))))
     proc))
 
-(defun gist-simple-receiver (message)
+(defun gist-simple-receiver (message url)
   ;; Create a receiver of `gist-request'
-  `(lambda (status)
+  `(lambda (status json-or-params)
      (goto-char (point-min))
      (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
          (if (and (<= 200 code) (< code 300))
              (message "%s succeeded" ,message)
-           (message "%s failed" ,message))))))
+           (message "%s failed" ,message))))
+     (url-mark-buffer-as-dead (current-buffer))))
 
 (provide 'gist)
 
