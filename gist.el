@@ -40,7 +40,7 @@
 
 ;; If you want to save encrypted token to ~/.gitconfig download following url.
 ;;
-;; http://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+;; https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
 ;; 
 ;; (setq gist-encrypt-risky-config t)
 

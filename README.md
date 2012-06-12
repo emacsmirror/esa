@@ -15,28 +15,34 @@ In your emacs config:
     (add-to-list 'load-path "~/.emacs.d/vendor/gist.el")
     (require 'gist)
 
+If you want to save encrypted token to ~/.gitconfig download following url.
+
+    https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+
+    (setq gist-encrypt-risky-config t)
+
 Functions
 =========
 
-    gist-list - Lists your gists in a new buffer. Use arrow keys
+    M-x gist-list - Lists your gists in a new buffer. Use arrow keys
     to browse, RET to open one in the other buffer.
 
-    gist-region - Copies Gist URL into the kill ring.
+    M-x gist-region - Copies Gist URL into the kill ring.
     With a prefix argument, makes a private gist.
 
-    gist-region-private - Explicitly create a private gist.
+    M-x gist-region-private - Explicitly create a private gist.
 
-    gist-buffer - Copies Gist URL into the kill ring.
+    M-x gist-buffer - Copies Gist URL into the kill ring.
     With a prefix argument, makes a private gist.
 
-    gist-buffer-private - Explicitly create a private gist.
+    M-x gist-buffer-private - Explicitly create a private gist.
 
-    gist-region-or-buffer - Post either the current region, or if mark
+    M-x gist-region-or-buffer - Post either the current region, or if mark
     is not set, the current buffer as a new paste at gist.github.com .
     Copies the URL into the kill ring.
     With a prefix argument, makes a private paste.
 
-    gist-region-or-buffer-private - Explicitly create a gist from the
+    M-x gist-region-or-buffer-private - Explicitly create a gist from the
     region or buffer.
 
 Config
