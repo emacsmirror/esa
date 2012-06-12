@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.6.6
+;; Version: 0.7.0
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -34,8 +34,15 @@
 ;; Uses your local GitHub config if it can find it.
 ;; See http://github.com/blog/180-local-github-config
 
-;; if you are using Emacs 22 or earlier, download the json.el from following url
+;; If you are using Emacs 22 or earlier, download the json.el from following url
+;;
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
+
+;; If you want to save encrypted token to ~/.gitconfig download following url.
+;;
+;; http://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+;; 
+;; (setq gist-encrypt-risky-config t)
 
 ;;; TODO;
 
@@ -77,10 +84,8 @@ posted."
   :type 'function
   :group 'gist)
 
-(defcustom gist-list-per-page 20
-  "Number of gist to display a page."
-  :type 'number
-  :group 'gist)
+(defvar gist-list-items-per-page 20
+  "Number of gist to retrieve a page.")
 
 (defcustom gist-working-directory "~/.gist"
   "*Working directory where to go gist repository is."
@@ -105,8 +110,8 @@ Example:
     (define-key map "n" 'gist-list-next-gist)
     map))
 
-(defvar gist-list-current-page nil)
-(make-variable-buffer-local 'gist-list-current-page)
+(defvar gist-list--paging-info nil)
+(make-variable-buffer-local 'gist-list--paging-info)
 
 (define-derived-mode gist-list-mode fundamental-mode "Gists"
   "Show your gist list"
@@ -116,7 +121,8 @@ Example:
   (use-local-map gist-list-mode-map))
 
 ;; TODO http://developer.github.com/v3/oauth/
-;; "Desktop Application Flow" says that using the basic authentication...
+;; * "Desktop Application Flow" says that using the basic authentication...
+;; * `gist-region' not works
 (defun gist-basic-authentication ()
   (destructuring-bind (user . pass) (github-auth-info-basic)
     (format "Basic %s"
@@ -180,59 +186,100 @@ should both be strings."
                (funcall hexify (cdr param))))
      params "&")))
 
-(defun github-config (key)
-  "Returns a GitHub specific value from the global Git config."
-  (let* ((val (gist-command-to-string
-               "config" "--global" (format "github.%s" key))))
-    (if (string-match "\n+$" val)
-        (substring val 0 (match-beginning 0))
-      val)))
-
-(defun github-set-config (key value)
-  "Sets a GitHub specific value to the global Git config."
-  (gist-command-to-string
-   "config" "--global" (format "github.%s" key) value))
-
 (defun gist-command-to-string (&rest args)
   (with-output-to-string
     (with-current-buffer standard-output
       (apply 'call-process "git" nil t nil args))))
 
-;; FIXME obsoleted auth function?
-(defun github-auth-info ()
-  "Returns the user's GitHub authorization information.
-Searches for a GitHub username and token in the global git config,
-and returns (USERNAME . TOKEN). If nothing is found, prompts
-for the info then sets it to the git config."
-  (interactive)
+(defcustom gist-encrypt-risky-config nil
+  "*Encrypt your token by using `cipher/aes' package."
+  :type 'boolean
+  :group 'gist)
 
-  ;; If we've been called within a scope that already has this
-  ;; defined, don't take the time to get it again.
-  (if (boundp '*github-auth-info*)
-      *github-auth-info*
+(defvar github-risky-config-keys
+  '("oauth-token"))
 
-    (let* ((user (or github-user (github-config "user")))
-           (token (or github-token (github-config "token"))))
+(defun gist-decrypt-string (key string)
+  (let ((cipher/aes-decrypt-prompt
+         (format "Password to decrypt %s: " key)))
+    (cipher/aes-decrypt-string
+     (base64-decode-string string))))
 
-      (when (not user)
-        (setq user (read-string "GitHub username: "))
-        (github-set-config "user" user))
+(defun gist-encrypt-string (key string)
+  (let ((cipher/aes-encrypt-prompt
+         (format "Password to encrypt %s: " key)))
+    (base64-encode-string
+     (cipher/aes-encrypt-string string) t)))
 
-      (when (not token)
-        (setq token (read-string "GitHub API token: "))
-        (github-set-config "token" token))
+(defun github-config (key)
+  "Returns a GitHub specific value from the global Git config."
+  (let ((raw-val (github-read-config key)))
+    (cond
+     ((and (require 'cipher/aes nil t)
+           gist-encrypt-risky-config
+           (member key github-risky-config-keys))
+      (let* ((real-key (concat "encrypted." key))
+             (enc-val (github-read-config real-key)))
+        (when raw-val
+          ;; destroy unencrypted value.
+          (github-write-config key "")
+          ;; translate raw value to encrypted value
+          (github-set-config key raw-val))
+        (let ((real-val (and enc-val
+                             (gist-decrypt-string key enc-val))))
+          (or real-val raw-val))))
+     (t
+      raw-val))))
 
-      (cons user token))))
+(defun github-set-config (key value)
+  "Sets a GitHub specific value to the global Git config."
+  (cond
+   ((and (require 'cipher/aes nil t)
+         gist-encrypt-risky-config
+         (member key github-risky-config-keys))
+    (let* ((raw-val (github-read-config key))
+           (real-key (concat "encrypted." key))
+           (enc-val (gist-encrypt-string key value)))
+      (when raw-val
+        ;; destroy unencrypted value.
+        (github-write-config key ""))
+      (github-write-config real-key enc-val)))
+   (t
+    (github-write-config key value))))
+
+(defun github-write-config (key value)
+  (gist-command-to-string
+   "config" "--global" (format "github.%s" key) value))
+
+(defun github-read-config (key)
+  (let ((val (gist-command-to-string
+              "config" "--global" (format "github.%s" key))))
+    (cond
+     ((string-match "\\`[\n]*\\'" val) nil)
+     ((string-match "\n+\\'" val)
+      (substring val 0 (match-beginning 0)))
+     (t
+      val))))
 
 ;; 1. Register a oauth application
-;;   https://github.com/account/applications/
-;; 2. Open url like following by web-browser, and replace URL with registered callback url
+;;   https://github.com/settings/applications
+;; 2. Open url build by following code with web-browser, and replace URL with registered callback url
 ;;    and client-id with CLIENT-ID
-;;  https://github.com/login/oauth/authorize?redirect_uri=**URL**&client_id=**CLIENT-ID**
-;; 3. Copy the code in the redirected url query string.
+;; (concat
+;;  "https://github.com/login/oauth/authorize?"
+;;  (gist-make-query-string
+;;   '(("redirect_uri" . "**CALLBACK-URL**")
+;;     ("client_id" . "**CLIENT-ID**"))))
+;; 3. Copy the code in the redirected url in query string.
 ;;    ex: http://www.example.com/?code=SOME-CODE
 ;; 4. Open url like following by web-browser, and replace query-string like step 2.
-;; https://github.com/login/oauth/access_token?code=**CODE**&redirect_uri=**URL**&client_id=**CLIENT-ID**&client_secret=**CLIENT-SECRET**
+;; (concat
+;;  "https://github.com/login/oauth/access_token?"
+;;  (gist-make-query-string
+;;   '(("redirect_uri" . "**CALLBACK-URL**")
+;;     ("client_id" . "**CLIENT-ID**")
+;;     ("client_secret" . "**CLIENT-SECRET**")
+;;     ("code" . "**CODE**"))))
 
 (defun github-auth-info-oauth2 ()
   (let* ((token (or github-token (github-config "oauth-token"))))
@@ -305,37 +352,43 @@ Copies the URL into the kill ring."
     (gist-buffer t)))
 
 ;;;###autoload
-(defun gist-list (&optional page)
+(defun gist-list ()
   "Displays a list of all of the current user's gists in a new buffer."
-  (interactive
-   (let ((num (when current-prefix-arg
-                (read-number "Page: "))))
-     (list num)))
+  (interactive)
   (message "Retrieving list of your gists...")
+  (gist-list-draw-gists 1))
+
+(defun gist-list-next-gist ()
+  "Move to next line or to retrieve next page."
+  (interactive)
+  (forward-line 1)
+  (destructuring-bind (page . max) gist-list--paging-info
+    (cond
+     ((not (eobp)))
+     ((= page max)
+      (message "No more next page"))
+     (t
+      (gist-list-draw-gists (1+ page))))))
+
+(defun gist-list-prev-gist ()
+  "Move to previous line."
+  (interactive)
+  (forward-line -1))
+
+(defun gist-list-draw-gists (page)
+  ;;TODO control multiple asyncronous retrieving
+  (with-current-buffer (get-buffer-create "*gists*")
+    (when (= page 1)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (gist-list-mode)
+        (gist-insert-list-header))))
   (gist-request
    "GET"
    "https://api.github.com/gists"
    'gist-lists-retrieved-callback
-   `(("per_page" . ,(or gist-list-per-page 20))
-     ("page" . ,(max (or page 1) 1)))))
-
-(defun gist-list-next-gist ()
-  "Move to next line or next page."
-  (interactive)
-  (forward-line 1)
-  (when (eobp)
-    (gist-list (1+ gist-list-current-page))
-    ;; point is already move to first gist of this page
-    ))
-
-(defun gist-list-prev-gist ()
-  "Move to previous line or previous page."
-  (interactive)
-  (forward-line -1)
-  (when (and (bobp) (> gist-list-current-page 1))
-    (gist-list (1- gist-list-current-page))
-    ;; TODO goto last gist of this page
-    ))
+   `(("per_page" . ,gist-list-items-per-page)
+     ("page" . ,page))))
 
 (defun gist-list-revert-buffer (&rest ignore)
   ;; redraw gist list
@@ -362,7 +415,8 @@ Copies the URL into the kill ring."
   "Inserts a button that will open the given gist when pressed."
   (let* ((data (gist-parse-gist gist))
          (repo (car data)))
-    (mapc '(lambda (x) (insert (format "  %s   " x))) (cdr data))
+    (dolist (x (cdr data))
+      (insert (format "  %s   " x)))
     (make-text-button (line-beginning-position) (line-end-position)
                       'repo repo
                       'action 'gist-describe-button
@@ -542,9 +596,9 @@ for the gist."
               (kill-buffer (process-buffer p)))))
     proc))
 
-(defun gist-simple-receiver (message url)
+(defun gist-simple-receiver (message)
   ;; Create a receiver of `gist-request'
-  `(lambda (status json-or-params)
+  `(lambda (status url json-or-params)
      (goto-char (point-min))
      (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
@@ -578,26 +632,34 @@ for the gist."
   "Called when the list of gists has been retrieved. Parses the result
 and displays the list."
   (goto-char (point-min))
-  (when (re-search-forward "^\r?$" nil t)
-    (let* ((str (buffer-substring (point) (point-max)))
-           (decoded (decode-coding-string str 'utf-8))
-           (json (json-read-from-string decoded))
-           (page (cdr (assoc "page" params))))
-      (url-mark-buffer-as-dead (current-buffer))
-      (with-current-buffer (get-buffer-create "*gists*")
-        (gist-list-mode)
-        (goto-char (point-min))
-        (save-excursion
-          (let ((inhibit-read-only t))
-            (delete-region (point-min) (point-max))
-            (gist-insert-list-header)
-            (mapc 'gist-insert-gist-link json)))
-        (setq gist-list-current-page page)
+  (let ((max-page
+         ;; search http headaer
+         (and (re-search-forward "<\\([^>]+\\)>; *rel=\"last\"" nil t)
+              (let ((url (match-string 1)))
+                (and (string-match "\\?\\(.*\\)" url)
+                     (let* ((query (match-string 1 url))
+                            (params (url-parse-query-string query))
+                            (max-page (cadr (assoc "page" params))))
+                       (when (string-match "\\`[0-9]+\\'" max-page)
+                         (string-to-number max-page))))))))
+    (when (re-search-forward "^\r?$" nil t)
+      (let* ((str (buffer-substring (point) (point-max)))
+             (decoded (decode-coding-string str 'utf-8))
+             (json (json-read-from-string decoded))
+             (page (cdr (assoc "page" params))))
+        (with-current-buffer (get-buffer-create "*gists*")
+          (save-excursion
+            (let ((inhibit-read-only t))
+              (goto-char (point-max))
+              (mapc 'gist-insert-gist-link json)))
+          ;; no max-page means last-page
+          (setq gist-list--paging-info
+                (cons page (or max-page page)))
 
-        ;; skip header
-        (forward-line)
-        (set-window-buffer nil (current-buffer)))))
-  (url-mark-buffer-as-dead (current-buffer)))
+          ;; skip header
+          (forward-line)
+          (set-window-buffer nil (current-buffer)))))
+    (url-mark-buffer-as-dead (current-buffer))))
 
 (provide 'gist)
 
