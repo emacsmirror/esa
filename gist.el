@@ -122,12 +122,13 @@ Example:
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; * "Desktop Application Flow" says that using the basic authentication...
-;; * `gist-region' not works
 (defun gist-basic-authentication ()
   (destructuring-bind (user . pass) (github-auth-info-basic)
     (format "Basic %s"
             (base64-encode-string (format "%s:%s" user pass)))))
 
+;; TODO
+;; * `gist-region' not works
 (defun gist-oauth2-authentication ()
   (let ((token (github-auth-info-oauth2)))
     (format "Bearer %s" token)))
@@ -215,8 +216,8 @@ should both be strings."
   "Returns a GitHub specific value from the global Git config."
   (let ((raw-val (github-read-config key)))
     (cond
-     ((and (require 'cipher/aes nil t)
-           gist-encrypt-risky-config
+     ((and gist-encrypt-risky-config
+           (require 'cipher/aes nil t)
            (member key github-risky-config-keys))
       (let* ((real-key (concat "encrypted." key))
              (enc-val (github-read-config real-key)))
@@ -234,8 +235,8 @@ should both be strings."
 (defun github-set-config (key value)
   "Sets a GitHub specific value to the global Git config."
   (cond
-   ((and (require 'cipher/aes nil t)
-         gist-encrypt-risky-config
+   ((and gist-encrypt-risky-config
+         (require 'cipher/aes nil t)
          (member key github-risky-config-keys))
     (let* ((raw-val (github-read-config key))
            (real-key (concat "encrypted." key))
