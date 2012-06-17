@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.7.0
+;; Version: 0.7.1
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -84,7 +84,7 @@ posted."
   :type 'function
   :group 'gist)
 
-(defvar gist-list-items-per-page 20
+(defvar gist-list-items-per-page nil
   "Number of gist to retrieve a page.")
 
 (defcustom gist-working-directory "~/.gist"
@@ -118,16 +118,18 @@ Example:
   (setq buffer-read-only t)
   (setq truncate-lines t)
   (setq revert-buffer-function 'gist-list-revert-buffer)
+  (add-hook 'post-command-hook 'gist-list--paging-retrieve nil t)
   (use-local-map gist-list-mode-map))
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; * "Desktop Application Flow" says that using the basic authentication...
-;; * `gist-region' not works
 (defun gist-basic-authentication ()
   (destructuring-bind (user . pass) (github-auth-info-basic)
     (format "Basic %s"
             (base64-encode-string (format "%s:%s" user pass)))))
 
+;; TODO
+;; * `gist-region' not works
 (defun gist-oauth2-authentication ()
   (let ((token (github-auth-info-oauth2)))
     (format "Bearer %s" token)))
@@ -215,8 +217,8 @@ should both be strings."
   "Returns a GitHub specific value from the global Git config."
   (let ((raw-val (github-read-config key)))
     (cond
-     ((and (require 'cipher/aes nil t)
-           gist-encrypt-risky-config
+     ((and gist-encrypt-risky-config
+           (require 'cipher/aes nil t)
            (member key github-risky-config-keys))
       (let* ((real-key (concat "encrypted." key))
              (enc-val (github-read-config real-key)))
@@ -234,8 +236,8 @@ should both be strings."
 (defun github-set-config (key value)
   "Sets a GitHub specific value to the global Git config."
   (cond
-   ((and (require 'cipher/aes nil t)
-         gist-encrypt-risky-config
+   ((and gist-encrypt-risky-config
+         (require 'cipher/aes nil t)
          (member key github-risky-config-keys))
     (let* ((raw-val (github-read-config key))
            (real-key (concat "encrypted." key))
@@ -263,8 +265,8 @@ should both be strings."
 
 ;; 1. Register a oauth application
 ;;   https://github.com/settings/applications
-;; 2. Open url build by following code with web-browser, and replace URL with registered callback url
-;;    and client-id with CLIENT-ID
+;; 2. Open url build by following code with web-browser, and replace URL with 
+;;    registered callback url and client-id with CLIENT-ID
 ;; (concat
 ;;  "https://github.com/login/oauth/authorize?"
 ;;  (gist-make-query-string
@@ -272,7 +274,7 @@ should both be strings."
 ;;     ("client_id" . "**CLIENT-ID**"))))
 ;; 3. Copy the code in the redirected url in query string.
 ;;    ex: http://www.example.com/?code=SOME-CODE
-;; 4. Open url like following by web-browser, and replace query-string like step 2.
+;; 4. Open url build by follwing expression with web-browser.
 ;; (concat
 ;;  "https://github.com/login/oauth/access_token?"
 ;;  (gist-make-query-string
@@ -361,33 +363,43 @@ Copies the URL into the kill ring."
 (defun gist-list-next-gist ()
   "Move to next line or to retrieve next page."
   (interactive)
-  (forward-line 1)
-  (destructuring-bind (page . max) gist-list--paging-info
-    (cond
-     ((not (eobp)))
-     ((= page max)
-      (message "No more next page"))
-     (t
-      (gist-list-draw-gists (1+ page))))))
+  (forward-line 1))
 
 (defun gist-list-prev-gist ()
   "Move to previous line."
   (interactive)
   (forward-line -1))
 
+(defun gist-list--paging-retrieve ()
+  (cond
+   ((null gist-list--paging-info))
+   ((eq gist-list--paging-info t))
+   (t
+    (destructuring-bind (page . max) gist-list--paging-info
+      (cond
+       ((or (not (numberp page))
+            (not (numberp max))))       ; Now retrieving
+       ((not (eobp)))
+       ((= page max)
+        (message "No more next page"))
+       (t
+        (gist-list-draw-gists (1+ page))))))))
+
 (defun gist-list-draw-gists (page)
-  ;;TODO control multiple asyncronous retrieving
   (with-current-buffer (get-buffer-create "*gists*")
     (when (= page 1)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (gist-list-mode)
-        (gist-insert-list-header))))
+        (gist-insert-list-header)))
+    ;; suppress multiple retrieving
+    (setq gist-list--paging-info t))
   (gist-request
    "GET"
    "https://api.github.com/gists"
    'gist-lists-retrieved-callback
-   `(("per_page" . ,gist-list-items-per-page)
+   `(,@(and gist-list-items-per-page
+            `(("per_page" . ,gist-list-items-per-page)))
      ("page" . ,page))))
 
 (defun gist-list-revert-buffer (&rest ignore)
