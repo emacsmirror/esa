@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.7.1
+;; Version: 0.7.2
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -128,7 +128,6 @@ Example:
     (format "Basic %s"
             (base64-encode-string (format "%s:%s" user pass)))))
 
-;; TODO
 ;; * `gist-region' not works
 (defun gist-oauth2-authentication ()
   (let ((token (github-auth-info-oauth2)))
@@ -271,7 +270,12 @@ should both be strings."
 ;;  "https://github.com/login/oauth/authorize?"
 ;;  (gist-make-query-string
 ;;   '(("redirect_uri" . "**CALLBACK-URL**")
-;;     ("client_id" . "**CLIENT-ID**"))))
+;;     ("client_id" . "**CLIENT-ID**")
+;;     ("scope" . "gist"))))
+;;
+;; NOTE: Scopes are defined here.
+;; http://developer.github.com/v3/oauth/#scopes
+
 ;; 3. Copy the code in the redirected url in query string.
 ;;    ex: http://www.example.com/?code=SOME-CODE
 ;; 4. Open url build by follwing expression with web-browser.
