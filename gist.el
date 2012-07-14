@@ -106,8 +106,6 @@ Example:
 (defvar gist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
-    (define-key map "p" 'gist-list-prev-gist)
-    (define-key map "n" 'gist-list-next-gist)
     map))
 
 (defvar gist-list--paging-info nil)
@@ -362,16 +360,6 @@ Copies the URL into the kill ring."
   (interactive)
   (message "Retrieving list of your gists...")
   (gist-list-draw-gists 1))
-
-(defun gist-list-next-gist ()
-  "Move to next line or to retrieve next page."
-  (interactive)
-  (forward-line 1))
-
-(defun gist-list-prev-gist ()
-  "Move to previous line."
-  (interactive)
-  (forward-line -1))
 
 (defun gist-list--paging-retrieve ()
   (cond
