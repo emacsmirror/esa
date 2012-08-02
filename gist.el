@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.7.2
+;; Version: 0.7.3
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -106,6 +106,8 @@ Example:
 (defvar gist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
+    (define-key map "p" 'previous-line)
+    (define-key map "n" 'forward-line)
     map))
 
 (defvar gist-list--paging-info nil)
