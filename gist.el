@@ -1,4 +1,4 @@
-;;; gist.el --- Emacs integration for gist.github.com
+;;; yagist.el --- Emacs integration for gist.github.com
 
 ;; Author: Christian Neukirchen <purl.org/net/chneukirchen>
 ;; Maintainer: Masahiro Hayashi <mhayashi1120@gmail.com>
@@ -42,7 +42,7 @@
 ;;
 ;; https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
 ;; 
-;; (setq gist-encrypt-risky-config t)
+;; (setq yagist-encrypt-risky-config t)
 
 ;;; TODO;
 ;; * github-* prefix
@@ -53,7 +53,7 @@
 (require 'json)
 (require 'url)
 
-(defgroup gist nil
+(defgroup yagist nil
   "Simple gist application."
   :group 'applications)
 
@@ -64,88 +64,88 @@ git-config(1).")
   "If non-nil, will be used as your GitHub token without checking
 git-config(1).")
 
-(defcustom gist-user-password nil
+(defcustom yagist-user-password nil
   "If non-nil, will be used as your GitHub password without reading."
   :type 'string
-  :group 'gist)
+  :group 'yagist)
 
-(defcustom gist-view-gist nil
+(defcustom yagist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
 posted."
   :type 'boolean
-  :group 'gist)
+  :group 'yagist)
 
-(defcustom gist-display-date-format "%Y-%m-%d %H:%M"
-  "Date format displaying in `gist-list' buffer."
+(defcustom yagist-display-date-format "%Y-%m-%d %H:%M"
+  "Date format displaying in `yagist-list' buffer."
   :type 'string
-  :group 'gist)
+  :group 'yagist)
 
-(defcustom gist-authenticate-function 'gist-basic-authentication
+(defcustom yagist-authenticate-function 'yagist-basic-authentication
   "Authentication function symbol."
   :type 'function
-  :group 'gist)
+  :group 'yagist)
 
-(defvar gist-list-items-per-page nil
+(defvar yagist-list-items-per-page nil
   "Number of gist to retrieve a page.")
 
-(defcustom gist-working-directory "~/.gist"
+(defcustom yagist-working-directory "~/.gist"
   "*Working directory where to go gist repository is."
   :type 'directory
-  :group 'gist)
+  :group 'yagist)
 
-(defcustom gist-working-directory-alist nil
+(defcustom yagist-working-directory-alist nil
   "*Alist of gist id as key, value is directory path.
 
 Example:
-\(setq gist-working-directory-alist
+\(setq yagist-working-directory-alist
       `((\"1080701\" . \"~/mygist/Emacs-nativechecker\")))
 "
   :type '(alist :key-type string
                 :value-type directory)
-  :group 'gist)
+  :group 'yagist)
 
-(defvar gist-list-mode-map
+(defvar yagist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
     (define-key map "p" 'previous-line)
     (define-key map "n" 'forward-line)
     map))
 
-(defvar gist-list--paging-info nil)
-(make-variable-buffer-local 'gist-list--paging-info)
+(defvar yagist-list--paging-info nil)
+(make-variable-buffer-local 'yagist-list--paging-info)
 
-(define-derived-mode gist-list-mode fundamental-mode "Gists"
+(define-derived-mode yagist-list-mode fundamental-mode "YaGist"
   "Show your gist list"
   (setq buffer-read-only t)
   (setq truncate-lines t)
-  (setq revert-buffer-function 'gist-list-revert-buffer)
-  (add-hook 'post-command-hook 'gist-list--paging-retrieve nil t)
-  (use-local-map gist-list-mode-map))
+  (setq revert-buffer-function 'yagist-list-revert-buffer)
+  (add-hook 'post-command-hook 'yagist-list--paging-retrieve nil t)
+  (use-local-map yagist-list-mode-map))
 
 ;; TODO http://developer.github.com/v3/oauth/
 ;; * "Desktop Application Flow" says that using the basic authentication...
-(defun gist-basic-authentication ()
-  (destructuring-bind (user . pass) (github-auth-info-basic)
+(defun yagist-basic-authentication ()
+  (destructuring-bind (user . pass) (yagist-auth-info-basic)
     (format "Basic %s"
             (base64-encode-string (format "%s:%s" user pass)))))
 
-(defun gist-oauth2-authentication ()
-  (let ((token (github-auth-info-oauth2)))
+(defun yagist-oauth2-authentication ()
+  (let ((token (yagist-auth-info-oauth2)))
     (format "Bearer %s" token)))
 
-(defun gist-request (method url callback &optional json-or-params)
+(defun yagist-request (method url callback &optional json-or-params)
   (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
          (params (and (member method '("GET" "DELETE")) json-or-params))
          (url-request-data (and json (concat (json-encode json) "\n")))
          (url-request-extra-headers
-          `(("Authorization" . ,(funcall gist-authenticate-function))))
+          `(("Authorization" . ,(funcall yagist-authenticate-function))))
          (url-request-method method)
          (url-max-redirection -1)
-         (url (if params (concat url "?" (gist-make-query-string params)) url)))
+         (url (if params (concat url "?" (yagist-make-query-string params)) url)))
     (url-retrieve url callback (list url json-or-params))))
 
 ;;;###autoload
-(defun gist-region (begin end &optional private name)
+(defun yagist-region (begin end &optional private name)
   "Post the current region as a new paste at gist.github.com
 Copies the URL into the kill ring.
 
@@ -153,26 +153,26 @@ With a prefix argument, makes a private paste."
   (interactive "r\nP")
   (let* ((description (read-from-minibuffer "Description: "))
          ;; cause of privacy reason,
-         ;; set filename as empty if call from gist-*-region function.
+         ;; set filename as empty if call from yagist-*-region function.
          ;; I think that highly expected upload just the region,
          ;; not a filename.
          (filename (or name "")))
-    (gist-request
+    (yagist-request
      "POST"
      "https://api.github.com/gists"
-     'gist-created-callback
+     'yagist-created-callback
      `(("description" . ,description)
        ("public" . ,(if private :json-false 't))
        ("files" .
         ((,filename .
                     (("content" . ,(buffer-substring begin end))))))))))
 
-(defun gist-single-file-name ()
+(defun yagist-single-file-name ()
   (let* ((file (or (buffer-file-name) (buffer-name)))
          (name (file-name-nondirectory file)))
     name))
 
-(defun gist-make-query-string (params)
+(defun yagist-make-query-string (params)
   "Returns a query string constructed from PARAMS, which should be
 a list with elements of the form (KEY . VALUE). KEY and VALUE
 should both be strings."
@@ -187,12 +187,12 @@ should both be strings."
                (funcall hexify (cdr param))))
      params "&")))
 
-(defun gist-command-to-string (&rest args)
+(defun yagist-command-to-string (&rest args)
   (with-output-to-string
     (with-current-buffer standard-output
       (apply 'call-process "git" nil t nil args))))
 
-(defcustom gist-encrypt-risky-config nil
+(defcustom yagist-encrypt-risky-config nil
   "*Encrypt your token by using `cipher/aes' package."
   :type 'boolean
   :group 'gist)
@@ -200,60 +200,60 @@ should both be strings."
 (defvar github-risky-config-keys
   '("oauth-token"))
 
-(defun gist-decrypt-string (key string)
+(defun yagist-decrypt-string (key string)
   (let ((cipher/aes-decrypt-prompt
          (format "Password to decrypt %s: " key)))
     (cipher/aes-decrypt-string
      (base64-decode-string string))))
 
-(defun gist-encrypt-string (key string)
+(defun yagist-encrypt-string (key string)
   (let ((cipher/aes-encrypt-prompt
          (format "Password to encrypt %s: " key)))
     (base64-encode-string
      (cipher/aes-encrypt-string string) t)))
 
-(defun github-config (key)
+(defun yagist-config (key)
   "Returns a GitHub specific value from the global Git config."
-  (let ((raw-val (github-read-config key)))
+  (let ((raw-val (yagist-read-config key)))
     (cond
-     ((and gist-encrypt-risky-config
+     ((and yagist-encrypt-risky-config
            (require 'cipher/aes nil t)
            (member key github-risky-config-keys))
       (let* ((real-key (concat "encrypted." key))
-             (enc-val (github-read-config real-key)))
+             (enc-val (yagist-read-config real-key)))
         (when raw-val
           ;; destroy unencrypted value.
-          (github-write-config key "")
+          (yagist-write-config key "")
           ;; translate raw value to encrypted value
-          (github-set-config key raw-val))
+          (yagist-set-config key raw-val))
         (let ((real-val (and enc-val
-                             (gist-decrypt-string key enc-val))))
+                             (yagist-decrypt-string key enc-val))))
           (or real-val raw-val))))
      (t
       raw-val))))
 
-(defun github-set-config (key value)
+(defun yagist-set-config (key value)
   "Sets a GitHub specific value to the global Git config."
   (cond
-   ((and gist-encrypt-risky-config
+   ((and yagist-encrypt-risky-config
          (require 'cipher/aes nil t)
          (member key github-risky-config-keys))
-    (let* ((raw-val (github-read-config key))
+    (let* ((raw-val (yagist-read-config key))
            (real-key (concat "encrypted." key))
-           (enc-val (gist-encrypt-string key value)))
+           (enc-val (yagist-encrypt-string key value)))
       (when raw-val
         ;; destroy unencrypted value.
-        (github-write-config key ""))
-      (github-write-config real-key enc-val)))
+        (yagist-write-config key ""))
+      (yagist-write-config real-key enc-val)))
    (t
-    (github-write-config key value))))
+    (yagist-write-config key value))))
 
-(defun github-write-config (key value)
-  (gist-command-to-string
+(defun yagist-write-config (key value)
+  (yagist-command-to-string
    "config" "--global" (format "github.%s" key) value))
 
-(defun github-read-config (key)
-  (let ((val (gist-command-to-string
+(defun yagist-read-config (key)
+  (let ((val (yagist-command-to-string
               "config" "--global" (format "github.%s" key))))
     (cond
      ((string-match "\\`[\n]*\\'" val) nil)
@@ -268,7 +268,7 @@ should both be strings."
 ;;    registered callback url and client-id with CLIENT-ID
 ;; (concat
 ;;  "https://github.com/login/oauth/authorize?"
-;;  (gist-make-query-string
+;;  (yagist-make-query-string
 ;;   '(("redirect_uri" . "**CALLBACK-URL**")
 ;;     ("client_id" . "**CLIENT-ID**")
 ;;     ("scope" . "gist"))))
@@ -281,95 +281,95 @@ should both be strings."
 ;; 4. Open url build by follwing expression with web-browser.
 ;; (concat
 ;;  "https://github.com/login/oauth/access_token?"
-;;  (gist-make-query-string
+;;  (yagist-make-query-string
 ;;   '(("redirect_uri" . "**CALLBACK-URL**")
 ;;     ("client_id" . "**CLIENT-ID**")
 ;;     ("client_secret" . "**CLIENT-SECRET**")
 ;;     ("code" . "**CODE**"))))
 
-(defun github-auth-info-oauth2 ()
-  (let* ((token (or github-token (github-config "oauth-token"))))
+(defun yagist-auth-info-oauth2 ()
+  (let* ((token (or github-token (yagist-config "oauth-token"))))
 
     (when (not token)
       (setq token (read-string "GitHub OAuth token: "))
-      (github-set-config "oauth-token" token))
+      (yagist-set-config "oauth-token" token))
 
     token))
 
-(defun github-auth-info-basic ()
-  (let* ((user (or github-user (github-config "user")))
+(defun yagist-auth-info-basic ()
+  (let* ((user (or github-user (yagist-config "user")))
          pass)
 
     (when (not user)
       (setq user (read-string "GitHub username: "))
-      (github-set-config "user" user))
+      (yagist-set-config "user" user))
 
-    (setq pass (gist-get-user-password))
+    (setq pass (yagist-get-user-password))
 
     (cons user pass)))
 
-(defun gist-get-user-password ()
-  (or gist-user-password
+(defun yagist-get-user-password ()
+  (or yagist-user-password
       (read-passwd "Password: ")))
 
 ;;;###autoload
-(defun gist-region-private (begin end)
+(defun yagist-region-private (begin end)
   "Post the current region as a new private paste at gist.github.com
 Copies the URL into the kill ring."
   (interactive "r")
-  (gist-region begin end t))
+  (yagist-region begin end t))
 
 ;;;###autoload
-(defun gist-buffer (&optional private)
+(defun yagist-buffer (&optional private)
   "Post the current buffer as a new paste at gist.github.com.
 Copies the URL into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "P")
-  (gist-region (point-min) (point-max)
-               private (gist-single-file-name)))
+  (yagist-region (point-min) (point-max)
+               private (yagist-single-file-name)))
 
 ;;;###autoload
-(defun gist-buffer-private ()
+(defun yagist-buffer-private ()
   "Post the current buffer as a new private paste at gist.github.com.
 Copies the URL into the kill ring."
   (interactive)
-  (gist-region (point-min) (point-max)
-               t (gist-single-file-name)))
+  (yagist-region (point-min) (point-max)
+               t (yagist-single-file-name)))
 
 ;;;###autoload
-(defun gist-region-or-buffer (&optional private)
+(defun yagist-region-or-buffer (&optional private)
   "Post either the current region, or if mark is not set, the current buffer as a new paste at gist.github.com
 Copies the URL into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "P")
-  (if (gist-region-active-p)
-      (gist-region (region-beginning) (region-end) private)
-    (gist-buffer private)))
+  (if (yagist-region-active-p)
+      (yagist-region (region-beginning) (region-end) private)
+    (yagist-buffer private)))
 
 ;;;###autoload
-(defun gist-region-or-buffer-private ()
+(defun yagist-region-or-buffer-private ()
   "Post either the current region, or if mark is not set, the current buffer as a new private paste at gist.github.com
 Copies the URL into the kill ring."
   (interactive)
-  (if (gist-region-active-p)
-      (gist-region (region-beginning) (region-end) t)
-    (gist-buffer t)))
+  (if (yagist-region-active-p)
+      (yagist-region (region-beginning) (region-end) t)
+    (yagist-buffer t)))
 
 ;;;###autoload
-(defun gist-list ()
+(defun yagist-list ()
   "Displays a list of all of the current user's gists in a new buffer."
   (interactive)
   (message "Retrieving list of your gists...")
-  (gist-list-draw-gists 1))
+  (yagist-list-draw-gists 1))
 
-(defun gist-list--paging-retrieve ()
+(defun yagist-list--paging-retrieve ()
   (cond
-   ((null gist-list--paging-info))
-   ((eq gist-list--paging-info t))
+   ((null yagist-list--paging-info))
+   ((eq yagist-list--paging-info t))
    (t
-    (destructuring-bind (page . max) gist-list--paging-info
+    (destructuring-bind (page . max) yagist-list--paging-info
       (cond
        ((or (not (numberp page))
             (not (numberp max))))       ; Now retrieving
@@ -377,66 +377,66 @@ Copies the URL into the kill ring."
        ((= page max)
         (message "No more next page"))
        (t
-        (gist-list-draw-gists (1+ page))))))))
+        (yagist-list-draw-gists (1+ page))))))))
 
-(defun gist-list-draw-gists (page)
+(defun yagist-list-draw-gists (page)
   (with-current-buffer (get-buffer-create "*gists*")
     (when (= page 1)
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (gist-list-mode)
-        (gist-insert-list-header)))
+        (yagist-list-mode)
+        (yagist-insert-list-header)))
     ;; suppress multiple retrieving
-    (setq gist-list--paging-info t))
-  (gist-request
+    (setq yagist-list--paging-info t))
+  (yagist-request
    "GET"
    "https://api.github.com/gists"
-   'gist-lists-retrieved-callback
-   `(,@(and gist-list-items-per-page
-            `(("per_page" . ,gist-list-items-per-page)))
+   'yagist-lists-retrieved-callback
+   `(,@(and yagist-list-items-per-page
+            `(("per_page" . ,yagist-list-items-per-page)))
      ("page" . ,page))))
 
-(defun gist-list-revert-buffer (&rest ignore)
+(defun yagist-list-revert-buffer (&rest ignore)
   ;; redraw gist list
-  (gist-list))
+  (yagist-list))
 
-(defun gist-region-active-p ()
+(defun yagist-region-active-p ()
   (if (functionp 'region-active-p)
       ;; trick for suppressing elint warning
       (funcall 'region-active-p)
     (and transient-mark-mode mark-active)))
 
-(defun gist-insert-list-header ()
+(defun yagist-insert-list-header ()
   "Creates the header line in the gist list buffer."
   (save-excursion
     (insert "  ID           Updated                "
             "  Visibility  Description             "
-            (gist-fill-string "" (frame-width))
+            (yagist-fill-string "" (frame-width))
             "\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
     (overlay-put ov 'face 'header-line))
   (forward-line))
 
-(defun gist-insert-gist-link (gist)
+(defun yagist-insert-gist-link (gist)
   "Inserts a button that will open the given gist when pressed."
-  (let* ((data (gist-parse-gist gist))
+  (let* ((data (yagist-parse-gist gist))
          (repo (car data)))
     (dolist (x (cdr data))
       (insert (format "  %s   " x)))
     (make-text-button (line-beginning-position) (line-end-position)
                       'repo repo
-                      'action 'gist-describe-button
+                      'action 'yagist-describe-button
                       'face 'default
-                      'gist-json gist))
+                      'yagist-json gist))
   (insert "\n"))
 
-(defun gist-describe-button (button)
-  (let ((json (button-get button 'gist-json)))
+(defun yagist-describe-button (button)
+  (let ((json (button-get button 'yagist-json)))
     (with-help-window (help-buffer)
       (with-current-buffer standard-output
-        (gist-describe-gist-1 json)))))
+        (yagist-describe-gist-1 json)))))
 
-(defun gist-describe-insert-button (text action json)
+(defun yagist-describe-insert-button (text action json)
   (let ((button-text (if (display-graphic-p) text (concat "[" text "]")))
         (button-face (if (display-graphic-p)
                          '(:box (:line-width 2 :color "dark grey")
@@ -449,10 +449,10 @@ Copies the URL into the kill ring."
                         'follow-link t
                         'action action
                         'repo id
-                        'gist-json json)
+                        'yagist-json json)
     (insert " ")))
 
-(defun gist-describe-gist-1 (gist)
+(defun yagist-describe-gist-1 (gist)
   (require 'lisp-mnt)
   (let ((id (cdr (assq 'id gist)))
         (description (cdr (assq 'description gist)))
@@ -471,49 +471,49 @@ Copies the URL into the kill ring."
     (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
     (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
             (format-time-string
-             gist-display-date-format
-             (gist-parse-time-string updated)) "\n")
+             yagist-display-date-format
+             (yagist-parse-time-string updated)) "\n")
 
     (insert "\n\n")
 
-    (gist-describe-insert-button "Fetch Repository" 'gist-fetch-button gist)
-    (gist-describe-insert-button "Browse" 'gist-open-web-button gist)
+    (yagist-describe-insert-button "Fetch Repository" 'yagist-fetch-button gist)
+    (yagist-describe-insert-button "Browse" 'yagist-open-web-button gist)
 
     (insert "\n\n")
 
-    (gist-describe-insert-button "Edit Description" 'gist-update-button gist)
-    (gist-describe-insert-button "Delete Gist" 'gist-delete-button gist)))
+    (yagist-describe-insert-button "Edit Description" 'yagist-update-button gist)
+    (yagist-describe-insert-button "Delete Gist" 'yagist-delete-button gist)))
 
-(defun gist-fetch-button (button)
+(defun yagist-fetch-button (button)
   "Called when a gist [Fetch] button has been pressed.
 Fetche gist repository and open the directory.
 
-See `gist-working-directory-alist' document to fetch repository
+See `yagist-working-directory-alist' document to fetch repository
 into the user selected directory."
-  (gist-fetch (button-get button 'repo)))
+  (yagist-fetch (button-get button 'repo)))
 
-(defun gist-delete-button (button)
+(defun yagist-delete-button (button)
   "Called when a gist [Delete] button has been pressed.
 Confirm and delete the gist."
   (when (y-or-n-p "Really delete this gist? ")
-    (gist-delete (button-get button 'repo))))
+    (yagist-delete (button-get button 'repo))))
 
-(defun gist-update-button (button)
+(defun yagist-update-button (button)
   "Called when a gist [Edit] button has been pressed.
 Edit the gist description."
-  (let* ((json (button-get button 'gist-json))
+  (let* ((json (button-get button 'yagist-json))
          (desc (read-from-minibuffer
                 "Description: "
                 (cdr (assq 'description json)))))
-    (gist-update (button-get button 'repo) desc)))
+    (yagist-update (button-get button 'repo) desc)))
 
-(defun gist-open-web-button (button)
+(defun yagist-open-web-button (button)
   "Called when a gist [Browse] button has been pressed."
-  (let* ((json (button-get button 'gist-json))
+  (let* ((json (button-get button 'yagist-json))
          (url (cdr (assq 'html_url json))))
     (browse-url url)))
 
-(defun gist-parse-gist (gist)
+(defun yagist-parse-gist (gist)
   "Returns a list of the gist's attributes for display, given the xml list
 for the gist."
   (let ((repo (cdr (assq 'id gist)))
@@ -523,15 +523,15 @@ for the gist."
                         "public"
                       "private")))
     (list repo
-          (gist-fill-string repo 8)
-          (gist-fill-string
+          (yagist-fill-string repo 8)
+          (yagist-fill-string
            (format-time-string
-            gist-display-date-format (gist-parse-time-string updated-at))
+            yagist-display-date-format (yagist-parse-time-string updated-at))
            20)
-          (gist-fill-string visibility 7)
+          (yagist-fill-string visibility 7)
           (or description ""))))
 
-(defun gist-parse-time-string (string)
+(defun yagist-parse-time-string (string)
   (let* ((times (split-string string "[-T:Z]" t))
          (getter (lambda (x) (string-to-number (nth x times))))
          (year (funcall getter 0))
@@ -542,49 +542,49 @@ for the gist."
          (sec (funcall getter 5)))
     (encode-time sec min hour day month year 0)))
 
-(defun gist-fill-string (string width)
+(defun yagist-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
 
-(defconst gist-repository-url-format "git@gist.github.com:%s.git")
+(defconst yagist-repository-url-format "git@gist.github.com:%s.git")
 
-(defun gist-fetch (id)
-  (let* ((url (format gist-repository-url-format id))
-         (working-copy (gist-working-copy-directory id)))
+(defun yagist-fetch (id)
+  (let* ((url (format yagist-repository-url-format id))
+         (working-copy (yagist-working-copy-directory id)))
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
       (message "Cloning %s into working copy..." url)
-      (gist-start-git `("clone" ,url ".") working-copy))
+      (yagist-start-git `("clone" ,url ".") working-copy))
      (t
       (message "Fetching %s into working copy... " url)
-      (gist-start-git `("pull" ,url) working-copy)))
+      (yagist-start-git `("pull" ,url) working-copy)))
     (dired working-copy)))
 
-(defun gist-delete (id)
-  (gist-request
+(defun yagist-delete (id)
+  (yagist-request
    "DELETE"
    (format "https://api.github.com/gists/%s" id)
-   (gist-simple-receiver "Delete")))
+   (yagist-simple-receiver "Delete")))
 
-(defun gist-update (id description)
-  (gist-request
+(defun yagist-update (id description)
+  (yagist-request
    "PATCH"
    (format "https://api.github.com/gists/%s" id)
-   (gist-simple-receiver "Update")
+   (yagist-simple-receiver "Update")
    `(,@(and description
             `(("description" . ,description))))))
 
-(defun gist-working-copy-directory (id)
-  (let* ((pair (assoc id gist-working-directory-alist))
+(defun yagist-working-copy-directory (id)
+  (let* ((pair (assoc id yagist-working-directory-alist))
          (dir (cond
                (pair
                 (cdr pair))
                (t
-                (expand-file-name id gist-working-directory)))))
+                (expand-file-name id yagist-working-directory)))))
     (unless (file-directory-p dir)
       (make-directory dir t))
     dir))
 
-(defun gist-start-git (args &optional directory)
+(defun yagist-start-git (args &optional directory)
   (let* ((buffer (generate-new-buffer " *gist git* "))
          (default-directory
            (or (and directory (file-name-as-directory directory))
@@ -602,8 +602,8 @@ for the gist."
               (kill-buffer (process-buffer p)))))
     proc))
 
-(defun gist-simple-receiver (message)
-  ;; Create a receiver of `gist-request'
+(defun yagist-simple-receiver (message)
+  ;; Create a receiver of `yagist-request'
   `(lambda (status url json-or-params)
      (goto-char (point-min))
      (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
@@ -612,10 +612,10 @@ for the gist."
              (message "%s succeeded" ,message)
            (message "%s %s"
                     ,message
-                    (gist--err-propertize "failed")))))
+                    (yagist--err-propertize "failed")))))
      (url-mark-buffer-as-dead (current-buffer))))
 
-(defun gist-created-callback (status url json)
+(defun yagist-created-callback (status url json)
   (let ((location (save-excursion
                     (goto-char (point-min))
                     (and (re-search-forward "^Location: \\(.*\\)" nil t)
@@ -628,19 +628,19 @@ for the gist."
       (let ((id (match-string 1 location)))
         (setq http-url (format "https://gist.github.com/%s" id))
         (message "Paste created: %s" http-url)
-        (when gist-view-gist
+        (when yagist-view-gist
           (browse-url http-url))))
      (t
       (message "Paste is %s"
-               (gist--err-propertize "failed"))))
+               (yagist--err-propertize "failed"))))
     (when http-url
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
 
-(defun gist--err-propertize (string)
+(defun yagist--err-propertize (string)
   (propertize string 'face 'font-lock-warning-face))
 
-(defun gist-lists-retrieved-callback (status url params)
+(defun yagist-lists-retrieved-callback (status url params)
   "Called when the list of gists has been retrieved. Parses the result
 and displays the list."
   (goto-char (point-min))
@@ -663,9 +663,9 @@ and displays the list."
           (save-excursion
             (let ((inhibit-read-only t))
               (goto-char (point-max))
-              (mapc 'gist-insert-gist-link json)))
+              (mapc 'yagist-insert-gist-link json)))
           ;; no max-page means last-page
-          (setq gist-list--paging-info
+          (setq yagist-list--paging-info
                 (cons page (or max-page page)))
 
           ;; skip header
@@ -677,39 +677,41 @@ and displays the list."
 ;;; Gist minor mode
 ;;;
 
-(defvar gist-minor-mode-gist-id nil)
+(defvar yagist-minor-mode-gist-id nil)
 
-(define-minor-mode gist-minor-mode
+;;;###autoload
+(define-minor-mode yagist-minor-mode
   ""
-  :init-value nil :lighter " [Gist]" :keymap nil
+  :init-value nil :lighter " [YaGist]" :keymap nil
   (unwind-protect
       (cond
-       (gist-minor-mode
-        (let ((id (or (or gist-minor-mode-gist-id
-                          (gist-directory-is-gist default-directory)
+       (yagist-minor-mode
+        (let ((id (or (or yagist-minor-mode-gist-id
+                          (yagist-directory-is-gist default-directory)
                           (read-from-minibuffer "Gist ID: ")))))
-          (set (make-local-variable 'gist-minor-mode-gist-id) id)))
+          (set (make-local-variable 'yagist-minor-mode-gist-id) id)))
        (t nil))
-    (when gist-minor-mode
+    (when yagist-minor-mode
       (cond
-       ((null gist-minor-mode-gist-id)
-        (gist-minor-mode -1))
+       ((null yagist-minor-mode-gist-id)
+        (yagist-minor-mode -1))
        (t
-        (add-hook 'after-save-hook 'gist-after-save-commit nil t))))))
+        (add-hook 'after-save-hook 'yagist-after-save-commit nil t))))))
 
-(define-global-minor-mode gist-global-minor-mode
-  gist-minor-mode gist-minor-mode-maybe
+;;;###autoload
+(define-global-minor-mode yagist-global-minor-mode
+  yagist-minor-mode yagist-minor-mode-maybe
   )
 
-(defun gist-minor-mode-maybe ()
+(defun yagist-minor-mode-maybe ()
   (when (and default-directory
              (not (minibufferp)))
-    (let ((id (gist-directory-is-gist default-directory)))
-      (setq gist-minor-mode-gist-id id)
+    (let ((id (yagist-directory-is-gist default-directory)))
+      (setq yagist-minor-mode-gist-id id)
       (when id
-        (gist-minor-mode 1)))))
+        (yagist-minor-mode 1)))))
 
-(defun gist-directory-is-gist (directory)
+(defun yagist-directory-is-gist (directory)
   (let ((conf (expand-file-name ".git/config" directory)))
     (when (file-exists-p conf)
       (with-temp-buffer
@@ -724,19 +726,19 @@ and displays the list."
              ((string-match "^git@gist.github.com:\\([0-9a-fA-F]+\\)\\.git$" url)
               (match-string 1 url)))))))))
 
-(defun gist-after-save-commit ()
-  (when gist-minor-mode-gist-id
+(defun yagist-after-save-commit ()
+  (when yagist-minor-mode-gist-id
     (let* ((file (or (buffer-file-name) (buffer-name)))
            (name (file-name-nondirectory file)))
-      (gist-request
+      (yagist-request
        "PATCH"
        (format "https://api.github.com/gists/%s"
-               gist-minor-mode-gist-id)
-       (gist-simple-receiver "Update")
+               yagist-minor-mode-gist-id)
+       (yagist-simple-receiver "Update")
        `(("files" .
           ((,name .
                   (("content" . ,(buffer-string)))))))))))
 
-(provide 'gist)
+(provide 'yagist)
 
-;;; gist.el ends here.
+;;; yagist.el ends here.
