@@ -45,7 +45,6 @@
 ;; (setq yagist-encrypt-risky-config t)
 
 ;;; TODO;
-;; * github-* prefix
 
 ;;; Code:
 
@@ -57,12 +56,17 @@
   "Simple gist application."
   :group 'applications)
 
-(defvar github-user nil
+(defcustom yagist-github-user nil
   "If non-nil, will be used as your GitHub username without checking
-git-config(1).")
-(defvar github-token nil
+git-config(1)."
+  :group 'yagist
+  :type 'string)
+
+(defcustom yagist-github-token nil
   "If non-nil, will be used as your GitHub token without checking
-git-config(1).")
+git-config(1)."
+  :group 'yagist
+  :type 'string)
 
 (defcustom yagist-user-password nil
   "If non-nil, will be used as your GitHub password without reading."
@@ -197,7 +201,7 @@ should both be strings."
   :type 'boolean
   :group 'gist)
 
-(defvar github-risky-config-keys
+(defvar yagist-risky-config-keys
   '("oauth-token"))
 
 (defun yagist-decrypt-string (key string)
@@ -218,7 +222,7 @@ should both be strings."
     (cond
      ((and yagist-encrypt-risky-config
            (require 'cipher/aes nil t)
-           (member key github-risky-config-keys))
+           (member key yagist-risky-config-keys))
       (let* ((real-key (concat "encrypted." key))
              (enc-val (yagist-read-config real-key)))
         (when raw-val
@@ -237,7 +241,7 @@ should both be strings."
   (cond
    ((and yagist-encrypt-risky-config
          (require 'cipher/aes nil t)
-         (member key github-risky-config-keys))
+         (member key yagist-risky-config-keys))
     (let* ((raw-val (yagist-read-config key))
            (real-key (concat "encrypted." key))
            (enc-val (yagist-encrypt-string key value)))
@@ -288,7 +292,7 @@ should both be strings."
 ;;     ("code" . "**CODE**"))))
 
 (defun yagist-auth-info-oauth2 ()
-  (let* ((token (or github-token (yagist-config "oauth-token"))))
+  (let* ((token (or yagist-github-token (yagist-config "oauth-token"))))
 
     (when (not token)
       (setq token (read-string "GitHub OAuth token: "))
@@ -297,7 +301,7 @@ should both be strings."
     token))
 
 (defun yagist-auth-info-basic ()
-  (let* ((user (or github-user (yagist-config "user")))
+  (let* ((user (or yagist-github-user (yagist-config "user")))
          pass)
 
     (when (not user)
