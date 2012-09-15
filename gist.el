@@ -45,6 +45,7 @@
 ;; (setq gist-encrypt-risky-config t)
 
 ;;; TODO;
+;; * github-* prefix
 
 ;;; Code:
 
@@ -609,7 +610,9 @@ for the gist."
        (let ((code (string-to-number (match-string 1))))
          (if (and (<= 200 code) (< code 300))
              (message "%s succeeded" ,message)
-           (message "%s failed" ,message))))
+           (message "%s %s"
+                    ,message
+                    (gist--err-propertize "failed")))))
      (url-mark-buffer-as-dead (current-buffer))))
 
 (defun gist-created-callback (status url json)
@@ -628,10 +631,14 @@ for the gist."
         (when gist-view-gist
           (browse-url http-url))))
      (t
-      (message "Paste is failed")))
+      (message "Paste is %s"
+               (gist--err-propertize "failed"))))
     (when http-url
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
+
+(defun gist--err-propertize (string)
+  (propertize string 'face 'font-lock-warning-face))
 
 (defun gist-lists-retrieved-callback (status url params)
   "Called when the list of gists has been retrieved. Parses the result
@@ -665,6 +672,70 @@ and displays the list."
           (forward-line)
           (set-window-buffer nil (current-buffer)))))
     (url-mark-buffer-as-dead (current-buffer))))
+
+;;;
+;;; Gist minor mode
+;;;
+
+(defvar gist-minor-mode-gist-id nil)
+
+(define-minor-mode gist-minor-mode
+  ""
+  :init-value nil :lighter " [Gist]" :keymap nil
+  (unwind-protect
+      (cond
+       (gist-minor-mode
+        (let ((id (or (or gist-minor-mode-gist-id
+                          (gist-directory-is-gist default-directory)
+                          (read-from-minibuffer "Gist ID: ")))))
+          (set (make-local-variable 'gist-minor-mode-gist-id) id)))
+       (t nil))
+    (when gist-minor-mode
+      (cond
+       ((null gist-minor-mode-gist-id)
+        (gist-minor-mode -1))
+       (t
+        (add-hook 'after-save-hook 'gist-after-save-commit nil t))))))
+
+(define-global-minor-mode gist-global-minor-mode
+  gist-minor-mode gist-minor-mode-maybe
+  )
+
+(defun gist-minor-mode-maybe ()
+  (when (and default-directory
+             (not (minibufferp)))
+    (let ((id (gist-directory-is-gist default-directory)))
+      (setq gist-minor-mode-gist-id id)
+      (when id
+        (gist-minor-mode 1)))))
+
+(defun gist-directory-is-gist (directory)
+  (let ((conf (expand-file-name ".git/config" directory)))
+    (when (file-exists-p conf)
+      (with-temp-buffer
+        (insert-file-contents conf)
+        (when (and (re-search-forward "^\\[remote \"origin\"]" nil t)
+                   (re-search-forward "^[ \t]*url[ \t]*=[ \t]*\\(.*\\)" nil t))
+          (let ((url (match-string 1)))
+            ;; public gist have decimal, private gist have hex id
+            (cond
+             ((string-match "^git://gist.github.com/\\([0-9a-fA-F]+\\)\\.git$" url)
+              (match-string 1 url))
+             ((string-match "^git@gist.github.com:\\([0-9a-fA-F]+\\)\\.git$" url)
+              (match-string 1 url)))))))))
+
+(defun gist-after-save-commit ()
+  (when gist-minor-mode-gist-id
+    (let* ((file (or (buffer-file-name) (buffer-name)))
+           (name (file-name-nondirectory file)))
+      (gist-request
+       "PATCH"
+       (format "https://api.github.com/gists/%s"
+               gist-minor-mode-gist-id)
+       (gist-simple-receiver "Update")
+       `(("files" .
+          ((,name .
+                  (("content" . ,(buffer-string)))))))))))
 
 (provide 'gist)
 
