@@ -90,7 +90,9 @@ posted."
 
 (defcustom yagist-authenticate-function 'yagist-basic-authentication
   "Authentication function symbol."
-  :type 'function
+  :type '(choice
+          (const yagist-basic-authentication)
+          (const yagist-oauth2-authentication))
   :group 'yagist)
 
 (defvar yagist-list-items-per-page nil

@@ -97,6 +97,10 @@ Please try following step to get the GitHub OAuth token:
            ("client_secret" . "**CLIENT-SECRET**")
            ("code" . "**CODE**"))))
 
+Other customizations:
+
+     M-x customize-group (yagist)
+
 Meta
 ====
 
