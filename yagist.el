@@ -67,7 +67,7 @@ git-config(1)."
   :type 'string)
 
 (defcustom yagist-github-token nil
-  "If non-nil, will be used as your GitHub token without checking
+  "If non-nil, will be used as your GitHub OAuth token without checking
 git-config(1)."
   :group 'yagist
   :type 'string)
