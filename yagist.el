@@ -7,10 +7,11 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.0
+;; Version: 0.8.1
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
+;; URL: https://github.com/mhayashi1120/yagist.el/raw/master/yagist.el
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -44,7 +45,9 @@
 ;; 
 ;; (setq yagist-encrypt-risky-config t)
 
-;;; TODO;
+;;; TODO:
+;; * yagist-minor-mode
+;;   API change VS repository change
 
 ;;; Code:
 
@@ -54,6 +57,7 @@
 
 (defgroup yagist nil
   "Simple gist application."
+  :prefix "yagist-"
   :group 'applications)
 
 (defcustom yagist-github-user nil
@@ -314,7 +318,7 @@ should both be strings."
 
 (defun yagist-get-user-password ()
   (or yagist-user-password
-      (read-passwd "Password: ")))
+      (read-passwd "GitHub password: ")))
 
 ;;;###autoload
 (defun yagist-region-private (begin end)
@@ -695,12 +699,13 @@ and displays the list."
                           (read-from-minibuffer "Gist ID: ")))))
           (set (make-local-variable 'yagist-minor-mode-gist-id) id)))
        (t nil))
-    (when yagist-minor-mode
-      (cond
-       ((null yagist-minor-mode-gist-id)
-        (yagist-minor-mode -1))
-       (t
-        (add-hook 'after-save-hook 'yagist-after-save-commit nil t))))))
+    (cond
+     ((not yagist-minor-mode))
+     ((null yagist-minor-mode-gist-id)
+      ;; fallback to off
+      (yagist-minor-mode -1))
+     (t
+      (add-hook 'after-save-hook 'yagist-after-save-commit nil t)))))
 
 ;;;###autoload
 (define-global-minor-mode yagist-global-minor-mode

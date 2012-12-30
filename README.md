@@ -45,6 +45,12 @@ Functions
     M-x yagist-region-or-buffer-private - Explicitly create a gist from the
     region or buffer.
 
+    M-x yagist-minor-mode - Automated POST current buffer contents to gist 
+	after saving.
+
+    M-x yagist-global-minor-mode - Open the file that under gist repository
+    automatically activate `yagist-minor-mode'.
+
 Config
 ======
 
