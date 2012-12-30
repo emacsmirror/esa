@@ -270,31 +270,6 @@ should both be strings."
      (t
       val))))
 
-;; 1. Register a oauth application
-;;   https://github.com/settings/applications
-;; 2. Open url build by following code with web-browser, and replace URL with 
-;;    registered callback url and client-id with CLIENT-ID
-;; (concat
-;;  "https://github.com/login/oauth/authorize?"
-;;  (yagist-make-query-string
-;;   '(("redirect_uri" . "**CALLBACK-URL**")
-;;     ("client_id" . "**CLIENT-ID**")
-;;     ("scope" . "gist"))))
-;;
-;; NOTE: Scopes are defined here.
-;; http://developer.github.com/v3/oauth/#scopes
-
-;; 3. Copy the code in the redirected url in query string.
-;;    ex: http://www.example.com/?code=SOME-CODE
-;; 4. Open url build by follwing expression with web-browser.
-;; (concat
-;;  "https://github.com/login/oauth/access_token?"
-;;  (yagist-make-query-string
-;;   '(("redirect_uri" . "**CALLBACK-URL**")
-;;     ("client_id" . "**CLIENT-ID**")
-;;     ("client_secret" . "**CLIENT-SECRET**")
-;;     ("code" . "**CODE**"))))
-
 (defun yagist-auth-info-oauth2 ()
   (let* ((token (or yagist-github-token (yagist-config "oauth-token"))))
 
