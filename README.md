@@ -60,8 +60,12 @@ Set `yagist-view-gist` to non-nil if you want to view your Gist using
 You can set `yagist-authenticate-function' to choose Basic authentication
 or OAuth authentication. (Default is Basic authentication)
 
+### Basic authentication
+
 Set `yagist-github-user` and `yagist-user-password' to your GitHub basic
 authentication to avoid checking `git-config` and minibuffer prompt.
+
+### OAuth authentication
 
 Set `yagist-github-token` to your GitHub credentials to avoid checking 
 `git-config` and minibuffer prompt.
@@ -74,30 +78,32 @@ Please try following step to get the GitHub OAuth token:
     2. Open url build by following code with web-browser, and replace URL with 
        registered callback url and client-id with CLIENT-ID
 
-       (concat
-        "https://github.com/login/oauth/authorize?"
-        (yagist-make-query-string
-         '(("redirect_uri" . "**CALLBACK-URL**")
-           ("client_id" . "**CLIENT-ID**")
-           ("scope" . "gist"))))
-    
-      NOTE: Scopes are defined here.
-      http://developer.github.com/v3/oauth/#scopes
+       NOTE: Scopes are defined here.
+       http://developer.github.com/v3/oauth/#scopes
+```lisp
+(concat
+ "https://github.com/login/oauth/authorize?"
+ (yagist-make-query-string
+  '(("redirect_uri" . "**CALLBACK-URL**")
+    ("client_id" . "**CLIENT-ID**")
+    ("scope" . "gist"))))
+```    
     
     3. Copy the code in the redirected url in query string.
        e.g. http://www.example.com/?code=SOME-CODE
     
     4. Open url build by follwing expression with web-browser.
+```lisp
+(concat
+ "https://github.com/login/oauth/access_token?"
+ (yagist-make-query-string
+  '(("redirect_uri" . "**CALLBACK-URL**")
+    ("client_id" . "**CLIENT-ID**")
+    ("client_secret" . "**CLIENT-SECRET**")
+    ("code" . "**CODE**"))))
+```
 
-       (concat
-        "https://github.com/login/oauth/access_token?"
-        (yagist-make-query-string
-         '(("redirect_uri" . "**CALLBACK-URL**")
-           ("client_id" . "**CLIENT-ID**")
-           ("client_secret" . "**CLIENT-SECRET**")
-           ("code" . "**CODE**"))))
-
-Other customizations:
+### Other customizations
 
      M-x customize-group (yagist)
 
