@@ -114,6 +114,11 @@ Example:
                 :value-type directory)
   :group 'yagist)
 
+(defcustom yagist-git-config-with-includes nil
+  "*Call git-config(1) with `--includes' option "
+  :type 'boolean
+  :group 'yagist)
+
 (defvar yagist-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
@@ -200,7 +205,8 @@ should both be strings."
 (defun yagist-command-to-string (&rest args)
   (with-output-to-string
     (with-current-buffer standard-output
-      (apply 'call-process "git" nil t nil args))))
+      (unless (= (apply 'call-process "git" nil t nil args) 0)
+        (error "git command fails %s" (buffer-string))))))
 
 (defcustom yagist-encrypt-risky-config nil
   "*Encrypt your token by using `cipher/aes' package."
@@ -263,8 +269,11 @@ should both be strings."
    "config" "--global" (format "github.%s" key) value))
 
 (defun yagist-read-config (key)
-  (let ((val (yagist-command-to-string
-              "config" "--global" "--includes" (format "github.%s" key))))
+  (let ((val (apply 'yagist-command-to-string
+                    `("config" "--global"
+                      ,@(and yagist-git-config-with-includes
+                             '("--includes"))
+                      ,(format "github.%s" key)))))
     (cond
      ((string-match "\\`[\n]*\\'" val) nil)
      ((string-match "\n+\\'" val)
