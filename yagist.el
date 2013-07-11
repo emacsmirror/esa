@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.3
+;; Version: 0.8.4
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -32,14 +32,12 @@
 
 ;;; Commentary:
 
-;; Uses your local GitHub config if it can find it.
-;; See http://github.com/blog/180-local-github-config
-
-;; If you are using Emacs 22 or earlier, download the json.el from following url
+;; If you are using Emacs 22 or earlier, install the json.el from following url
 ;;
 ;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
 
-;; If you want to save encrypted token to ~/.gitconfig download following url.
+;; If you want to save encrypted token to ~/.gitconfig install elisp from
+;; following url.
 ;;
 ;; https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
 ;;
@@ -54,6 +52,8 @@
 (eval-when-compile (require 'cl))
 (require 'json)
 (require 'url)
+(require 'derived)
+(require 'easy-mmode)
 
 (defgroup yagist nil
   "Simple gist application."
@@ -88,12 +88,9 @@ posted."
   :type 'string
   :group 'yagist)
 
-(defcustom yagist-authenticate-function 'yagist-basic-authentication
-  "Authentication function symbol."
-  :type '(choice
-          (const yagist-basic-authentication)
-          (const yagist-oauth2-authentication))
-  :group 'yagist)
+(defvar yagist-authenticate-function nil
+  "Authentication function symbol.")
+(make-obsolete-variable 'yagist-authenticate-function nil "0.8.4")
 
 (defvar yagist-list-items-per-page nil
   "Number of gist to retrieve a page.")
@@ -138,27 +135,80 @@ Example:
   (add-hook 'post-command-hook 'yagist-list--paging-retrieve nil t)
   (use-local-map yagist-list-mode-map))
 
-;; TODO http://developer.github.com/v3/oauth/
-;; * "Desktop Application Flow" says that using the basic authentication...
-(defun yagist-basic-authentication ()
-  (destructuring-bind (user . pass) (yagist-auth-info-basic)
-    (format "Basic %s"
-            (base64-encode-string (format "%s:%s" user pass)))))
+(defun yagist--read-json (start end)
+  (let* ((str (buffer-substring start end))
+         (decoded (decode-coding-string str 'utf-8)))
+    (json-read-from-string decoded)))
 
-(defun yagist-oauth2-authentication ()
-  (let ((token (yagist-auth-info-oauth2)))
-    (format "Bearer %s" token)))
-
-(defun yagist-request (method url callback &optional json-or-params)
+(defun yagist-request-0 (auth method url callback &optional json-or-params)
   (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
          (params (and (member method '("GET" "DELETE")) json-or-params))
          (url-request-data (and json (concat (json-encode json) "\n")))
          (url-request-extra-headers
-          `(("Authorization" . ,(funcall yagist-authenticate-function))))
+          `(("Authorization" . ,auth)))
          (url-request-method method)
          (url-max-redirection -1)
          (url (if params (concat url "?" (yagist-make-query-string params)) url)))
     (url-retrieve url callback (list url json-or-params))))
+
+(defun yagist-request (method url callback &optional json-or-params)
+  (let ((token (yagist-check-oauth-token)))
+    (yagist-request-0
+     (format "Bearer %s" token)
+     method url callback json-or-params)))
+
+;; http://developer.github.com/v3/oauth/#non-web-application-flow
+;; http://developer.github.com/v3/oauth/#create-a-new-authorization
+(defun yagist-check-oauth-token ()
+  (cond
+   ((or yagist-github-token
+        (yagist-config "oauth-token")))
+   (t
+    (let* ((user (or yagist-github-user
+                     (yagist-config "user")))
+           pass)
+
+      (when (not user)
+        (setq user (read-string "GitHub username: "))
+        ;; save username automatically
+        (yagist-set-config "user" user))
+
+      (setq pass (or yagist-user-password
+                     ;; Original gist.el (gh.el) use "password" key.
+                     (yagist-config "password")
+                     ;; never save password automatically
+                     (read-passwd "GitHub password: ")))
+
+      (unless (and user pass)
+        (error "You need to get oauth token or user/password"))
+      (let ((token (yagist-password-to-token user pass)))
+        ;; save token automatically. To avoid too many token.
+        (yagist-set-config "oauth-token" token)
+        token)))))
+
+(defun yagist-password-to-token (user password)
+  (let* ((params `(("scopes" . ,["gist"])
+                   ("note" . ,(format "yagist.el %s"
+                                      ;; depend on locale date style.
+                                      (format-time-string "%c")))
+                   ("note_url" . "https://github.com/mhayashi1120/yagist.el")))
+         (buffer
+          (yagist-request-0
+           (format "Basic %s"
+                   (base64-encode-string (format "%s:%s" user password)))
+           "POST"
+           "https://api.github.com/authorizations"
+           (lambda (status url params)
+             (goto-char (point-min))
+             (when (re-search-forward "^\r?$" nil t)
+               (let ((json (yagist--read-json (point) (point-max))))
+                 (setq hoge json)
+                 (setcdr (last params) (list (assq 'token json))))))
+           params)))
+    ;; wait until process end
+    (while (get-buffer-process buffer)
+      (sleep-for 0.1))
+    (cdr (assq 'token params))))
 
 ;;;###autoload
 (defun yagist-region (begin end &optional private name)
@@ -215,7 +265,7 @@ should both be strings."
   :group 'gist)
 
 (defvar yagist-risky-config-keys
-  '("oauth-token"))
+  '("oauth-token" "token" "password"))
 
 (defun yagist-decrypt-string (key string)
   (let ((cipher/aes-decrypt-prompt
@@ -230,7 +280,8 @@ should both be strings."
      (cipher/aes-encrypt-string string) t)))
 
 (defun yagist-config (key)
-  "Returns a GitHub specific value from the global Git config."
+  "Returns a GitHub specific value from the global Git config.
+This function may call `yagist-set-config' to decrease security risk."
   (let ((raw-val (yagist-read-config key)))
     (cond
      ((and yagist-encrypt-risky-config
@@ -240,7 +291,7 @@ should both be strings."
              (enc-val (yagist-read-config real-key)))
         (when raw-val
           ;; destroy unencrypted value.
-          (yagist-write-config key "")
+          (yagist-write-config key nil)
           ;; translate raw value to encrypted value
           (yagist-set-config key raw-val))
         (let ((real-val (and enc-val
@@ -260,52 +311,35 @@ should both be strings."
            (enc-val (yagist-encrypt-string key value)))
       (when raw-val
         ;; destroy unencrypted value.
-        (yagist-write-config key ""))
+        (yagist-write-config key nil))
       (yagist-write-config real-key enc-val)))
    (t
     (yagist-write-config key value))))
 
 (defun yagist-write-config (key value)
-  (yagist-command-to-string
-   "config" "--global" (format "github.%s" key) value))
+  (let ((args
+         `(
+           ,@(unless value '("--unset"))
+           ,(format "github.%s" key)
+           ,@(and value `(,value)))))
+    (apply 'yagist-command-to-string
+           "config" "--global" args)))
 
 (defun yagist-read-config (key)
-  (let ((val (apply 'yagist-command-to-string
-                    `("config" "--global"
-                      ,@(and yagist-git-config-with-includes
-                             '("--includes"))
-                      ,(format "github.%s" key)))))
+  (let ((val (condition-case nil
+                 (apply 'yagist-command-to-string
+                        `("config" "--global"
+                          ,@(and yagist-git-config-with-includes
+                                 '("--includes"))
+                          ,(format "github.%s" key)))
+               (error nil))))
     (cond
-     ((string-match "\\`[\n]*\\'" val) nil)
-     ((string-match "\n+\\'" val)
+     ((null val) nil)
+     ((string-match "\\`[\r\n]*\\'" val) nil)
+     ((string-match "[\r\n]+\\'" val)
       (substring val 0 (match-beginning 0)))
      (t
       val))))
-
-(defun yagist-auth-info-oauth2 ()
-  (let* ((token (or yagist-github-token (yagist-config "oauth-token"))))
-
-    (when (not token)
-      (setq token (read-string "GitHub OAuth token: "))
-      (yagist-set-config "oauth-token" token))
-
-    token))
-
-(defun yagist-auth-info-basic ()
-  (let* ((user (or yagist-github-user (yagist-config "user")))
-         pass)
-
-    (when (not user)
-      (setq user (read-string "GitHub username: "))
-      (yagist-set-config "user" user))
-
-    (setq pass (yagist-get-user-password))
-
-    (cons user pass)))
-
-(defun yagist-get-user-password ()
-  (or yagist-user-password
-      (read-passwd "GitHub password: ")))
 
 ;;;###autoload
 (defun yagist-region-private (begin end)
@@ -598,7 +632,7 @@ for the gist."
     proc))
 
 (defun yagist-simple-receiver (message)
-  ;; Create a receiver of `yagist-request'
+  ;; Create a receiver of `yagist-request-0'
   `(lambda (status url json-or-params)
      (goto-char (point-min))
      (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
@@ -650,9 +684,7 @@ and displays the list."
                        (when (string-match "\\`[0-9]+\\'" max-page)
                          (string-to-number max-page))))))))
     (when (re-search-forward "^\r?$" nil t)
-      (let* ((str (buffer-substring (point) (point-max)))
-             (decoded (decode-coding-string str 'utf-8))
-             (json (json-read-from-string decoded))
+      (let* ((json (yagist--read-json (point) (point-max)))
              (page (cdr (assoc "page" params))))
         (with-current-buffer (get-buffer-create "*gists*")
           (save-excursion
@@ -726,14 +758,17 @@ and displays the list."
   (when yagist-minor-mode-gist-id
     (let* ((file (or (buffer-file-name) (buffer-name)))
            (name (file-name-nondirectory file)))
-      (yagist-request
-       "PATCH"
-       (format "https://api.github.com/gists/%s"
-               yagist-minor-mode-gist-id)
-       (yagist-simple-receiver "Update")
-       `(("files" .
-          ((,name .
-                  (("content" . ,(buffer-string)))))))))))
+      (yagist-update-contents
+       yagist-minor-mode-gist-id name (buffer-string)))))
+
+(defun yagist-update-contents (id name content)
+  (yagist-request
+   "PATCH"
+   (format "https://api.github.com/gists/%s" id)
+   (yagist-simple-receiver "Update")
+   `(("files" .
+      ((,name .
+              (("content" . ,content))))))))
 
 (provide 'yagist)
 

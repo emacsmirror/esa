@@ -1,8 +1,5 @@
 yagist.el -- Yet Another Emacs integration for gist.github.com
-================================================
-
-Uses your local GitHub config if it can find it.
-See <http://github.com/blog/180-local-github-config>
+==============================================================
 
 Install
 =======
@@ -15,9 +12,10 @@ In your emacs config:
     (add-to-list 'load-path "~/.emacs.d/vendor/yagist.el")
     (require 'yagist)
 
-If you want to save encrypted token to ~/.gitconfig download following url.
+If you want to save encrypted token to ~/.gitconfig install elisp from following url.
+And set a variable:
 
-    https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
 
     (setq yagist-encrypt-risky-config t)
 
@@ -55,53 +53,31 @@ Config
 ======
 
 Set `yagist-view-gist` to non-nil if you want to view your Gist using
-`browse-url` after it is created.
-
-You can set `yagist-authenticate-function' to choose Basic authentication
-or OAuth authentication. (Default is Basic authentication)
-
-### Basic authentication
-
-Set `yagist-github-user` and `yagist-user-password' to your GitHub basic
-authentication to avoid checking `git-config` and minibuffer prompt.
+ `browse-url` after it is created.
 
 ### OAuth authentication
 
-Set `yagist-github-token` to your GitHub credentials to avoid checking 
-`git-config` and minibuffer prompt.
+Get the `Personal API Access Token` from:
 
-Please try following step to get the GitHub OAuth token:
-    
-    1. Register a oauth application
-      https://github.com/settings/applications
-    
-    2. Open url build by following code with web-browser, and replace URL with 
-       registered callback url and client-id with CLIENT-ID
+https://github.com/settings/applications
 
-       NOTE: Scopes are defined here.
-       http://developer.github.com/v3/oauth/#scopes
-```lisp
-(concat
- "https://github.com/login/oauth/authorize?"
- (yagist-make-query-string
-  '(("redirect_uri" . "**CALLBACK-URL**")
-    ("client_id" . "**CLIENT-ID**")
-    ("scope" . "gist"))))
-```    
-    
-    3. Copy the code in the redirected url in query string.
-       e.g. http://www.example.com/?code=SOME-CODE
-    
-    4. Open url build by follwing expression with web-browser.
-```lisp
-(concat
- "https://github.com/login/oauth/access_token?"
- (yagist-make-query-string
-  '(("redirect_uri" . "**CALLBACK-URL**")
-    ("client_id" . "**CLIENT-ID**")
-    ("client_secret" . "**CLIENT-SECRET**")
-    ("code" . "**CODE**"))))
-```
+Save the token to your ~/.gitconfig :
+
+    $ git config --global github.oauth-token ***************************
+
+Or put following to your .emacs:
+
+    ```lisp
+	(setq yagist-github-token "******************************")
+	```
+
+### Old authentication
+
+Now, yagist.el mainly use OAuth application flow. Password authentication is obsoleted.
+Please remove password entry from your .emacs .
+
+But still works username/password authentication by getting OAuth token with Basic Authentication.
+This may be unsupported in the future release.
 
 ### Other customizations
 
@@ -113,3 +89,4 @@ Meta
 * Code: `git clone git://github.com/mhayashi1120/yagist.el.git`
 * Home: <http://github.com/mhayashi1120/yagist.el>
 * Bugs: <http://github.com/mhayashi1120/yagist.el/issues>
+* Hosting: marmalade
