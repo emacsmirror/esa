@@ -9,15 +9,19 @@ Install
 
 In your emacs config:
 
-    (add-to-list 'load-path "~/.emacs.d/vendor/yagist.el")
-    (require 'yagist)
+```lisp
+(add-to-list 'load-path "~/.emacs.d/vendor/yagist.el")
+(require 'yagist)
+```
 
 If you want to save encrypted token to ~/.gitconfig install elisp from following url.
 And set a variable:
 
 https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
 
-    (setq yagist-encrypt-risky-config t)
+```lisp
+(setq yagist-encrypt-risky-config t)
+```
 
 Functions
 =========
@@ -67,9 +71,9 @@ Save the token to your ~/.gitconfig :
 
 Or put following to your .emacs:
 
-    ```lisp
-	(setq yagist-github-token "******************************")
-	```
+```lisp
+(setq yagist-github-token "******************************")
+```
 
 ### Old authentication
 
