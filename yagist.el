@@ -265,7 +265,7 @@ should both be strings."
   :group 'gist)
 
 (defvar yagist-risky-config-keys
-  '("oauth-token" "token" "password"))
+  '("oauth-token" "password"))
 
 (defun yagist-decrypt-string (key string)
   (let ((cipher/aes-decrypt-prompt
