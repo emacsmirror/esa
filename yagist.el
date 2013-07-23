@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.4
+;; Version: 0.8.5
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -202,7 +202,6 @@ Example:
              (goto-char (point-min))
              (when (re-search-forward "^\r?$" nil t)
                (let ((json (yagist--read-json (point) (point-max))))
-                 (setq hoge json)
                  (setcdr (last params) (list (assq 'token json))))))
            params)))
     ;; wait until process end
