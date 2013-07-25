@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.5
+;; Version: 0.8.6
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -397,7 +397,7 @@ Copies the URL into the kill ring."
   "Bury the *gists* buffer and delete its window.
 With a prefix argument, kill the buffer instead."
   (interactive "P")
-  (quit-window kill-buffer (get-buffer-window "*gists*")))
+  (quit-window kill-buffer))
 
 (defun yagist-list--paging-retrieve ()
   (cond
