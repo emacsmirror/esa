@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.6
+;; Version: 0.8.7
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -39,7 +39,7 @@
 ;; If you want to save encrypted token to ~/.gitconfig install elisp from
 ;; following url.
 ;;
-;; https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+;; https://github.com/mhayashi1120/Emacs-kaesar/raw/master/kaesar.el
 ;;
 ;; (setq yagist-encrypt-risky-config t)
 
@@ -260,7 +260,7 @@ should both be strings."
         (error "git command fails %s" (buffer-string))))))
 
 (defcustom yagist-encrypt-risky-config nil
-  "*Encrypt your token by using `cipher/aes' package."
+  "*Encrypt your token by using `kaesar' package."
   :type 'boolean
   :group 'gist)
 
@@ -268,16 +268,16 @@ should both be strings."
   '("oauth-token" "password"))
 
 (defun yagist-decrypt-string (key string)
-  (let ((cipher/aes-decrypt-prompt
+  (let ((kaesar-decrypt-prompt
          (format "Password to decrypt %s: " key)))
-    (cipher/aes-decrypt-string
+    (kaesar-decrypt-string
      (base64-decode-string string))))
 
 (defun yagist-encrypt-string (key string)
-  (let ((cipher/aes-encrypt-prompt
+  (let ((kaesar-encrypt-prompt
          (format "Password to encrypt %s: " key)))
     (base64-encode-string
-     (cipher/aes-encrypt-string string) t)))
+     (kaesar-encrypt-string string) t)))
 
 (defun yagist-config (key)
   "Returns a GitHub specific value from the global Git config.
@@ -285,7 +285,7 @@ This function may call `yagist-set-config' to decrease security risk."
   (let ((raw-val (yagist-read-config key)))
     (cond
      ((and yagist-encrypt-risky-config
-           (require 'cipher/aes nil t)
+           (require 'kaesar nil t)
            (member key yagist-risky-config-keys))
       (let* ((real-key (concat "encrypted." key))
              (enc-val (yagist-read-config real-key)))
@@ -304,7 +304,7 @@ This function may call `yagist-set-config' to decrease security risk."
   "Sets a GitHub specific value to the global Git config."
   (cond
    ((and yagist-encrypt-risky-config
-         (require 'cipher/aes nil t)
+         (require 'kaesar nil t)
          (member key yagist-risky-config-keys))
     (let* ((raw-val (yagist-read-config key))
            (real-key (concat "encrypted." key))
