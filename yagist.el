@@ -149,7 +149,9 @@ Example:
           `(("Authorization" . ,auth)))
          (url-request-method method)
          (url-max-redirection -1)
-         (url (if params (concat url "?" (yagist-make-query-string params)) url)))
+         (url (if params
+                  (concat url "?" (yagist-make-query-string params))
+                url)))
     (url-retrieve url callback (list url json-or-params))))
 
 (defun yagist-request (method url callback &optional json-or-params)
@@ -368,8 +370,9 @@ Copies the URL into the kill ring."
 
 ;;;###autoload
 (defun yagist-region-or-buffer (&optional private)
-  "Post either the current region, or if mark is not set, the current buffer as a new paste at gist.github.com
-Copies the URL into the kill ring.
+  "Post either the current region, or if mark is not set, the
+current buffer as a new paste at gist.github.com Copies the URL
+into the kill ring.
 
 With a prefix argument, makes a private paste."
   (interactive "P")
@@ -379,8 +382,9 @@ With a prefix argument, makes a private paste."
 
 ;;;###autoload
 (defun yagist-region-or-buffer-private ()
-  "Post either the current region, or if mark is not set, the current buffer as a new private paste at gist.github.com
-Copies the URL into the kill ring."
+  "Post either the current region, or if mark is not set, the
+current buffer as a new private paste at gist.github.com Copies
+the URL into the kill ring."
   (interactive)
   (if (yagist-region-active-p)
       (yagist-region (region-beginning) (region-end) t)
@@ -502,7 +506,8 @@ With a prefix argument, kill the buffer instead."
        (propertize "Private Gist"
                    'font-lock-face '(bold underline)))
      "\n")
-    (insert "  " (propertize "Description: " 'font-lock-face 'bold) (or description "") "\n")
+    (insert "  " (propertize "Description: " 'font-lock-face 'bold)
+            (or description "") "\n")
     (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
     (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
             (format-time-string
@@ -511,13 +516,17 @@ With a prefix argument, kill the buffer instead."
 
     (insert "\n\n")
 
-    (yagist-describe-insert-button "Fetch Repository" 'yagist-fetch-button gist)
-    (yagist-describe-insert-button "Browse" 'yagist-open-web-button gist)
+    (yagist-describe-insert-button
+     "Fetch Repository" 'yagist-fetch-button gist)
+    (yagist-describe-insert-button
+     "Browse" 'yagist-open-web-button gist)
 
     (insert "\n\n")
 
-    (yagist-describe-insert-button "Edit Description" 'yagist-update-button gist)
-    (yagist-describe-insert-button "Delete Gist" 'yagist-delete-button gist)))
+    (yagist-describe-insert-button
+     "Edit Description" 'yagist-update-button gist)
+    (yagist-describe-insert-button
+     "Delete Gist" 'yagist-delete-button gist)))
 
 (defun yagist-fetch-button (button)
   "Called when a gist [Fetch] button has been pressed.
@@ -755,9 +764,11 @@ and displays the list."
           (let ((url (match-string 1)))
             ;; public gist have decimal, private gist have hex id
             (cond
-             ((string-match "^git://gist.github.com/\\([0-9a-fA-F]+\\)\\.git$" url)
+             ((string-match
+               "^git://gist.github.com/\\([0-9a-fA-F]+\\)\\.git$" url)
               (match-string 1 url))
-             ((string-match "^git@gist.github.com:\\([0-9a-fA-F]+\\)\\.git$" url)
+             ((string-match
+               "^git@gist.github.com:\\([0-9a-fA-F]+\\)\\.git$" url)
               (match-string 1 url)))))))))
 
 (defun yagist-after-save-commit ()
