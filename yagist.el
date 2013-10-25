@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.7
+;; Version: 0.8.8
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -224,7 +224,7 @@ With a prefix argument, makes a private paste."
          ;; set filename as empty if call from yagist-*-region function.
          ;; I think that highly expected upload just the region,
          ;; not a filename.
-         (filename (or name "")))
+         (filename (or name (yagist-anonymous-file-name))))
     (yagist-request
      "POST"
      "https://api.github.com/gists"
@@ -239,6 +239,12 @@ With a prefix argument, makes a private paste."
   (let* ((file (or (buffer-file-name) (buffer-name)))
          (name (file-name-nondirectory file)))
     name))
+
+(defun yagist-anonymous-file-name ()
+  (let* ((file (or (buffer-file-name) (buffer-name)))
+         (name (file-name-nondirectory file))
+         (ext (file-name-extension name)))
+    (concat "anonymous-gist." ext)))
 
 (defun yagist-make-query-string (params)
   "Returns a query string constructed from PARAMS, which should be
@@ -358,7 +364,7 @@ Copies the URL into the kill ring.
 With a prefix argument, makes a private paste."
   (interactive "P")
   (yagist-region (point-min) (point-max)
-               private (yagist-single-file-name)))
+                 private (yagist-single-file-name)))
 
 ;;;###autoload
 (defun yagist-buffer-private ()
@@ -366,7 +372,7 @@ With a prefix argument, makes a private paste."
 Copies the URL into the kill ring."
   (interactive)
   (yagist-region (point-min) (point-max)
-               t (yagist-single-file-name)))
+                 t (yagist-single-file-name)))
 
 ;;;###autoload
 (defun yagist-region-or-buffer (&optional private)
