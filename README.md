@@ -75,14 +75,6 @@ Or put following to your .emacs:
 (setq yagist-github-token "******************************")
 ```
 
-### Old authentication
-
-Now, yagist.el mainly use OAuth application flow. Password authentication is obsoleted.
-Please remove password entry from your .emacs .
-
-But still works username/password authentication by getting OAuth token with Basic Authentication.
-This may be unsupported in the future release.
-
 ### Other customizations
 
      M-x customize-group (yagist)

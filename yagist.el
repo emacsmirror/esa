@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.8
+;; Version: 0.8.9
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -60,22 +60,11 @@
   :prefix "yagist-"
   :group 'applications)
 
-(defcustom yagist-github-user nil
-  "If non-nil, will be used as your GitHub username without checking
-git-config(1)."
-  :group 'yagist
-  :type 'string)
-
 (defcustom yagist-github-token nil
   "If non-nil, will be used as your GitHub OAuth token without checking
 git-config(1)."
   :group 'yagist
   :type 'string)
-
-(defcustom yagist-user-password nil
-  "If non-nil, will be used as your GitHub password without reading."
-  :type 'string
-  :group 'yagist)
 
 (defcustom yagist-view-gist nil
   "If non-nil, automatically use `browse-url' to view gists after they're
@@ -161,56 +150,13 @@ Example:
      method url callback json-or-params)))
 
 ;; http://developer.github.com/v3/oauth/#non-web-application-flow
-;; http://developer.github.com/v3/oauth/#create-a-new-authorization
 (defun yagist-check-oauth-token ()
   (cond
    ((or yagist-github-token
         (yagist-config "oauth-token")))
    (t
-    (let* ((user (or yagist-github-user
-                     (yagist-config "user")))
-           pass)
-
-      (when (not user)
-        (setq user (read-string "GitHub username: "))
-        ;; save username automatically
-        (yagist-set-config "user" user))
-
-      (setq pass (or yagist-user-password
-                     ;; Original gist.el (gh.el) use "password" key.
-                     (yagist-config "password")
-                     ;; never save password automatically
-                     (read-passwd "GitHub password: ")))
-
-      (unless (and user pass)
-        (error "You need to get oauth token or user/password"))
-      (let ((token (yagist-password-to-token user pass)))
-        ;; save token automatically. To avoid too many token.
-        (yagist-set-config "oauth-token" token)
-        token)))))
-
-(defun yagist-password-to-token (user password)
-  (let* ((params `(("scopes" . ,["gist"])
-                   ("note" . ,(format "yagist.el %s"
-                                      ;; depend on locale date style.
-                                      (format-time-string "%c")))
-                   ("note_url" . "https://github.com/mhayashi1120/yagist.el")))
-         (buffer
-          (yagist-request-0
-           (format "Basic %s"
-                   (base64-encode-string (format "%s:%s" user password)))
-           "POST"
-           "https://api.github.com/authorizations"
-           (lambda (status url params)
-             (goto-char (point-min))
-             (when (re-search-forward "^\r?$" nil t)
-               (let ((json (yagist--read-json (point) (point-max))))
-                 (setcdr (last params) (list (assq 'token json))))))
-           params)))
-    ;; wait until process end
-    (while (get-buffer-process buffer)
-      (sleep-for 0.1))
-    (cdr (assq 'token params))))
+    (browse-url "https://github.com/settings/applications")
+    (error "You need to get Personal OAuth Token"))))
 
 ;;;###autoload
 (defun yagist-region (begin end &optional private name)
@@ -273,7 +219,7 @@ should both be strings."
   :group 'gist)
 
 (defvar yagist-risky-config-keys
-  '("oauth-token" "password"))
+  '("oauth-token"))
 
 (defun yagist-decrypt-string (key string)
   (let ((kaesar-decrypt-prompt
