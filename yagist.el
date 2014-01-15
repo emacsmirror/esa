@@ -156,7 +156,7 @@ Example:
         (yagist-config "oauth-token")))
    (t
     (browse-url "https://github.com/settings/applications")
-    (error "You need to get Personal OAuth Token"))))
+    (error "You need to get Personal API Access Token"))))
 
 ;;;###autoload
 (defun yagist-region (begin end &optional private name)
