@@ -1,4 +1,6 @@
+EMACS = emacs
+
 check: compile
 
 compile:
-	emacs -q -batch -f batch-byte-compile yagist.el
+	$(EMACS) -q -batch -f batch-byte-compile yagist.el
