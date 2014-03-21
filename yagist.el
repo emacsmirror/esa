@@ -7,7 +7,7 @@
 ;; Michael Ivey
 ;; Phil Hagelberg
 ;; Dan McKinley
-;; Version: 0.8.10
+;; Version: 0.8.11
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
 ;; Package-Requires: ((json "1.2.0"))
@@ -552,10 +552,10 @@ for the gist."
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
       (message "Cloning %s into working copy..." url)
-      (yagist-start-git `("clone" ,url ".") working-copy))
+      (yagist-start-git-for-local `("clone" ,url ".") working-copy))
      (t
       (message "Fetching %s into working copy... " url)
-      (yagist-start-git `("pull" ,url) working-copy)))
+      (yagist-start-git-for-local `("pull" ,url) working-copy)))
     (dired working-copy)))
 
 (defun yagist-delete (id)
@@ -583,22 +583,26 @@ for the gist."
       (make-directory dir t))
     dir))
 
-(defun yagist-start-git (args &optional directory)
+(defun yagist-start-git-for-local (args &optional directory)
   (let* ((buffer (generate-new-buffer " *gist git* "))
          (default-directory
            (or (and directory (file-name-as-directory directory))
                default-directory))
          (proc (apply 'start-process "Gist" buffer "git" args)))
     (set-process-sentinel
-     proc (lambda (p e)
-            (when (memq (process-status p) '(exit signal))
-              (let ((code (process-exit-status p)))
-                (cond
-                 ((eq code 0)
-                  (message "Done fetching gist repository."))
-                 (t
-                  (message "Gist git process finished with %d" code))))
-              (kill-buffer (process-buffer p)))))
+     proc `(lambda (p e)
+             (when (memq (process-status p) '(exit signal))
+               (let ((code (process-exit-status p)))
+                 (cond
+                  ((eq code 0)
+                   (message "Done fetching gist repository."))
+                  (t
+                   (message "Gist git process finished with %d" code)))
+                 (let ((buf (dired-find-buffer-nocreate ,default-directory)))
+                   (when (and buf (buffer-live-p buf))
+                     (with-current-buffer buf
+                       (revert-buffer)))))
+               (kill-buffer (process-buffer p)))))
     proc))
 
 (defun yagist-simple-receiver (message)
