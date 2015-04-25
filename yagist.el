@@ -10,7 +10,6 @@
 ;; Version: 0.8.11
 ;; Created: 21 Jul 2008
 ;; Keywords: gist git github paste pastie pastebin
-;; Package-Requires: ((json "1.2.0"))
 ;; URL: https://github.com/mhayashi1120/yagist.el/raw/master/yagist.el
 
 ;; This file is NOT part of GNU Emacs.
