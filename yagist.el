@@ -1,16 +1,16 @@
 ;;; yagist.el --- Yet Another Emacs integration for gist.github.com
 
-;; Author: Christian Neukirchen <purl.org/net/chneukirchen>
+;; Original Author: Christian Neukirchen <purl.org/net/chneukirchen>
 ;; Maintainer: Masahiro Hayashi <mhayashi1120@gmail.com>
-;; Contributors:
-;; Will Farrington <wcfarrington@gmail.com>
-;; Michael Ivey
-;; Phil Hagelberg
-;; Dan McKinley
-;; Version: 0.8.11
+;; Contributors: Will Farrington <wcfarrington@gmail.com>
+;;               Michael Ivey
+;;               Phil Hagelberg
+;;               Dan McKinley
+;; Version: 0.8.12
 ;; Created: 21 Jul 2008
-;; Keywords: gist git github paste pastie pastebin
-;; URL: https://github.com/mhayashi1120/yagist.el/raw/master/yagist.el
+;; Keywords: tools
+;; Package-Requires: ((cl-lib "0.3"))
+;; URL: https://github.com/mhayashi1120/yagist.el
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -31,10 +31,6 @@
 
 ;;; Commentary:
 
-;; If you are using Emacs 22 or earlier, install the json.el from following url
-;;
-;; http://bzr.savannah.gnu.org/lh/emacs/emacs-23/annotate/head:/lisp/json.el
-
 ;; If you want to save encrypted token to ~/.gitconfig , install elisp from
 ;; following url. Or Melpa.
 ;;
@@ -48,7 +44,7 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
+(require 'cl-lib)
 (require 'json)
 (require 'url)
 (require 'derived)
@@ -155,7 +151,7 @@ Example:
         (yagist-config "oauth-token")))
    (t
     (browse-url "https://github.com/settings/applications")
-    (error "You need to get Personal API Access Token"))))
+    (error "You need to get OAuth Access Token by your browser"))))
 
 ;;;###autoload
 (defun yagist-region (begin end &optional private name)
@@ -362,7 +358,7 @@ With a prefix argument, kill the buffer instead."
    ((null yagist-list--paging-info))
    ((eq yagist-list--paging-info t))
    (t
-    (destructuring-bind (page . max) yagist-list--paging-info
+    (cl-destructuring-bind (page . max) yagist-list--paging-info
       (cond
        ((or (not (numberp page))
             (not (numberp max))))       ; Now retrieving
@@ -747,4 +743,4 @@ and displays the list."
 
 (provide 'yagist)
 
-;;; yagist.el ends here.
+;;; yagist.el ends here
