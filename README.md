@@ -17,7 +17,7 @@ In your emacs config:
 If you want to save encrypted token to ~/.gitconfig install elisp from following url.
 And set a variable:
 
-https://github.com/mhayashi1120/Emacs-cipher/raw/master/cipher/aes.el
+https://github.com/mhayashi1120/Emacs-kaesar/raw/master/kaesar.el
 
 ```lisp
 (setq yagist-encrypt-risky-config t)
@@ -83,6 +83,6 @@ Meta
 ====
 
 * Code: `git clone git://github.com/mhayashi1120/yagist.el.git`
-* Home: <http://github.com/mhayashi1120/yagist.el>
-* Bugs: <http://github.com/mhayashi1120/yagist.el/issues>
-* Hosting: marmalade
+* Home: <https://github.com/mhayashi1120/yagist.el>
+* Bugs: <https://github.com/mhayashi1120/yagist.el/issues>
+* Hosting: melpa
