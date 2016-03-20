@@ -121,11 +121,11 @@ Example:
 
 ;; POST /v1/teams/%s/posts
 ;;;###autoload
-(defun esa-region (begin end &optional private name)
+(defun esa-region (begin end &optional wip name)
   "Post the current region as a new paste at yourteam.esa.io
 Copies the URL into the kill ring.
 .
-With a prefix argument, makes a private paste."
+With a prefix argument, makes a wip paste."
   (interactive "r\nP")
   (let* ((description (read-from-minibuffer "Description: "))
          ;; cause of privacy reason,
@@ -138,7 +138,7 @@ With a prefix argument, makes a private paste."
      (format"https://api.esa.io/v1/teams/%s/posts" esa-team-name)
      'esa-created-callback
      `(("description" . ,description)
-       ("public" . ,(if private :json-false 't))
+       ("wip" . ,(if wip 't :json-false))
        ("files" .
         ((,filename .
                     (("content" . ,(buffer-substring begin end))))))))))
@@ -171,42 +171,42 @@ should both be strings."
       (unless (= (apply 'call-process "git" nil t nil args) 0)
         (error "git command fails %s" (buffer-string))))))
 ;;;###autoload
-(defun esa-region-private (begin end)
-  "Post the current region as a new private paste at yourteam.esa.io
+(defun esa-region-wip (begin end)
+  "Post the current region as a new wip paste at yourteam.esa.io
 Copies the URL into the kill ring."
   (interactive "r")
   (esa-region begin end t))
 ;;;###autoload
-(defun esa-buffer (&optional private)
+(defun esa-buffer (&optional wip)
   "Post the current buffer as a new paste at yourteam.esa.io.
 Copies the URL into the kill ring.
 .
-With a prefix argument, makes a private paste."
+With a prefix argument, makes a wip paste."
   (interactive "P")
   (esa-region (point-min) (point-max)
-                 private (esa-single-file-name)))
+                 wip (esa-single-file-name)))
 ;;;###autoload
-(defun esa-buffer-private ()
-  "Post the current buffer as a new private paste at yourteam.esa.io.
+(defun esa-buffer-wip ()
+  "Post the current buffer as a new wip paste at yourteam.esa.io.
 Copies the URL into the kill ring."
   (interactive)
   (esa-region (point-min) (point-max)
                  t (esa-single-file-name)))
 ;;;###autoload
-(defun esa-region-or-buffer (&optional private)
+(defun esa-region-or-buffer (&optional wip)
   "Post either the current region, or if mark is not set, the
 current buffer as a new paste at yourteam.esa.io Copies the URL
 into the kill ring.
 .
-With a prefix argument, makes a private paste."
+With a prefix argument, makes a wip paste."
   (interactive "P")
   (if (esa-region-active-p)
-      (esa-region (region-beginning) (region-end) private)
-    (esa-buffer private)))
+      (esa-region (region-beginning) (region-end) wip)
+    (esa-buffer wip)))
 ;;;###autoload
-(defun esa-region-or-buffer-private ()
+(defun esa-region-or-buffer-wip ()
   "Post either the current region, or if mark is not set, the
-current buffer as a new private paste at yourteam.esa.io Copies
+current buffer as a new wip paste at yourteam.esa.io Copies
 the URL into the kill ring."
   (interactive)
   (if (esa-region-active-p)
