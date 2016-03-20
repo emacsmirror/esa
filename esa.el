@@ -221,9 +221,7 @@ the URL into the kill ring."
      ((and (stringp location)
            (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" location))
       (let ((id (match-string 1 location)))
-        (setq http-url (format
-                        (format "https://%s.esa.io/posts/%s" esa-team-name)
-                        id))
+        (setq http-url (format "https://%s.esa.io/posts/%s" esa-team-name id))
         (message "Paste created: %s" http-url)
         (when esa-view-esa
           (browse-url http-url))))
@@ -461,10 +459,9 @@ for the esa."
     (encode-time sec min hour day month year 0)))
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
-(defconst esa-repository-url-format
-  (format "https://%s.esa.io/posts/%s" esa-team-name))
+(defconst esa-repository-url-format "https://%s.esa.io/posts/%s")
 (defun esa-fetch (id)
-  (let* ((url (format esa-repository-url-format id))
+  (let* ((url (format esa-repository-url-format esa-team-name id))
          (working-copy (esa-working-copy-directory id)))
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
@@ -512,9 +509,7 @@ for the esa."
 (defun esa-delete (id)
   (esa-request
    "DELETE"
-   (format
-    (format "https://api.esa.io/v1/%s/posts/%s" esa-team-name)
-    id)
+   (format "https://api.esa.io/v1/%s/posts/" esa-team-name id)
    (esa-simple-receiver "Delete")))
 
 
@@ -522,9 +517,7 @@ for the esa."
 (defun esa-update (id description)
   (esa-request
    "PATCH"
-   (format
-    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name)
-    id)
+   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name id)
    (esa-simple-receiver "Update")
    `(,@(and description
             `(("description" . ,description))))))
