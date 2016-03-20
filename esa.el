@@ -41,7 +41,8 @@
 (require 'easy-mmode)
 
 
-;;; Configuration
+;;; Configurations:
+
 (defgroup esa nil
   "Simple esa application."
   :prefix "esa-"
@@ -84,7 +85,8 @@ Example:
   :group 'esa)
 
 
-;;; Common Request
+;;; Dispatcher:
+
 (defun esa--read-json (start end)
   (let* ((str (buffer-substring start end))
          (decoded (decode-coding-string str 'utf-8)))
@@ -115,7 +117,9 @@ Example:
     (error "You need to get OAuth Access Token by your browser"))))
 
 
-;;; POST
+;;; Stores:
+
+;; POST /v1/teams/%s/posts
 ;;;###autoload
 (defun esa-region (begin end &optional private name)
   "Post the current region as a new paste at yourteam.esa.io
@@ -166,7 +170,6 @@ should both be strings."
     (with-current-buffer standard-output
       (unless (= (apply 'call-process "git" nil t nil args) 0)
         (error "git command fails %s" (buffer-string))))))
-
 ;;;###autoload
 (defun esa-region-private (begin end)
   "Post the current region as a new private paste at yourteam.esa.io
@@ -209,7 +212,6 @@ the URL into the kill ring."
   (if (esa-region-active-p)
       (esa-region (region-beginning) (region-end) t)
     (esa-buffer t)))
-
 (defun esa-created-callback (status url json)
   (let ((location (save-excursion
                     (goto-char (point-min))
@@ -232,8 +234,7 @@ the URL into the kill ring."
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
 
-
-;;; GET
+;; GET /v1/teams/%s/posts
 (defvar esa-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
@@ -251,7 +252,6 @@ the URL into the kill ring."
        'esa-list-revert-buffer)
   (add-hook 'post-command-hook 'esa-list--paging-retrieve nil t)
   (use-local-map esa-list-mode-map))
-
 ;;;###autoload
 (defun esa-list ()
   "Displays a list of all of the current user's esas in a new buffer."
@@ -301,7 +301,6 @@ With a prefix argument, kill the buffer instead."
       ;; trick for suppressing elint warning
       (funcall 'region-active-p)
     (and transient-mark-mode mark-active)))
-
 (defun esa-lists-retrieved-callback (status url params)
   "Called when the list of esas has been retrieved. Parses the result
 and displays the list."
@@ -331,6 +330,25 @@ and displays the list."
           (forward-line)
           (set-window-buffer nil (current-buffer)))))
     (url-mark-buffer-as-dead (current-buffer))))
+
+;; DELETE /v1/teams/%s/posts/%s
+(defun esa-delete (id)
+  (esa-request
+   "DELETE"
+   (format "https://api.esa.io/v1/%s/posts/%s" esa-team-name id)
+   (esa-simple-receiver "Delete")))
+
+;; PATCH /v1/teams/%s/posts/%s
+(defun esa-update (id description)
+  (esa-request
+   "PATCH"
+   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name id)
+   (esa-simple-receiver "Update")
+   `(,@(and description
+            `(("description" . ,description))))))
+
+
+;;; Components:
 
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
@@ -471,7 +489,6 @@ for the esa."
       (message "Fetching %s into working copy... " url)
       (esa-start-git-for-local `("pull" ,url) working-copy)))
     (dired working-copy)))
-
 (defun esa-start-git-for-local (args &optional directory)
   (let* ((buffer (generate-new-buffer " *gist git* "))
          (default-directory
@@ -505,25 +522,8 @@ for the esa."
     dir))
 
 
-;;; DELETE
-(defun esa-delete (id)
-  (esa-request
-   "DELETE"
-   (format "https://api.esa.io/v1/%s/posts/" esa-team-name id)
-   (esa-simple-receiver "Delete")))
+;;; Utilities:
 
-
-;;; PATCH
-(defun esa-update (id description)
-  (esa-request
-   "PATCH"
-   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name id)
-   (esa-simple-receiver "Update")
-   `(,@(and description
-            `(("description" . ,description))))))
-
-
-;;; Helpers
 (defun esa-simple-receiver (message)
   ;; Create a receiver of `esa-request-0'
   `(lambda (status url json-or-params)
