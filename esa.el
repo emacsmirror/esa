@@ -96,7 +96,8 @@ Example:
          (params (and (member method '("GET" "DELETE")) json-or-params))
          (url-request-data (and json (concat (json-encode json) "\n")))
          (url-request-extra-headers
-          `(("Authorization" . ,auth)))
+          `(("Authorization" . ,auth)
+            ("Content-Type" . "application/json;charset=UTF-8")))
          (url-request-method method)
          (url-max-redirection -1)
          (url (if params
@@ -121,27 +122,26 @@ Example:
 
 ;; POST /v1/teams/%s/posts
 ;;;###autoload
-(defun esa-region (begin end &optional wip name)
+(defun esa-region (begin end &optional wip)
   "Post the current region as a new paste at yourteam.esa.io
 Copies the URL into the kill ring.
 .
 With a prefix argument, makes a wip paste."
   (interactive "r\nP")
-  (let* ((description (read-from-minibuffer "Description: "))
-         ;; cause of privacy reason,
-         ;; set filename as empty if call from esa-*-region function.
-         ;; I think that highly expected upload just the region,
-         ;; not a filename.
-         (filename (or name (esa-anonymous-file-name))))
+  (let* ((name (read-from-minibuffer "Name: "))
+         (filename ""))
     (esa-request
      "POST"
-     (format"https://api.esa.io/v1/teams/%s/posts" esa-team-name)
+     (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
      'esa-created-callback
-     `(("description" . ,description)
-       ("wip" . ,(if wip 't :json-false))
-       ("files" .
-        ((,filename .
-                    (("content" . ,(buffer-substring begin end))))))))))
+     `(("post" .
+        (("name" . "test_3")
+         ("body_md" . "foo")
+         ("tags" . '())
+         ("category" . "")
+         ("wip" . ,(if wip 't :json-false))
+         ("message" . "")
+         ))))))
 (defun esa-single-file-name ()
   (let* ((file (or (buffer-file-name) (buffer-name)))
          (name (file-name-nondirectory file)))
@@ -183,15 +183,13 @@ Copies the URL into the kill ring.
 .
 With a prefix argument, makes a wip paste."
   (interactive "P")
-  (esa-region (point-min) (point-max)
-                 wip (esa-single-file-name)))
+  (esa-region (point-min) (point-max) wip))
 ;;;###autoload
 (defun esa-buffer-wip ()
   "Post the current buffer as a new wip paste at yourteam.esa.io.
 Copies the URL into the kill ring."
   (interactive)
-  (esa-region (point-min) (point-max)
-                 t (esa-single-file-name)))
+  (esa-region (point-min) (point-max) t))
 ;;;###autoload
 (defun esa-region-or-buffer (&optional wip)
   "Post either the current region, or if mark is not set, the
@@ -213,23 +211,25 @@ the URL into the kill ring."
       (esa-region (region-beginning) (region-end) t)
     (esa-buffer t)))
 (defun esa-created-callback (status url json)
-  (let ((location (save-excursion
+  (let ((json (save-excursion
                     (goto-char (point-min))
-                    (and (re-search-forward "^Location: \\(.*\\)" nil t)
-                         (match-string 1))))
+                    (when (re-search-forward "^\r?$" nil t)
+                      (esa--read-json (point) (point-max)))
+                    ))
         (http-url))
     (cond
-     ;; check redirected location indicate public/private esa url
-     ((and (stringp location)
-           (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" location))
-      (let ((id (match-string 1 location)))
+     ;; TODO: check redirected json indicate public/private esa url
+     ((and (stringp json)
+           (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" json))
+      (let ((id (match-string 1 json)))
         (setq http-url (format "https://%s.esa.io/posts/%s" esa-team-name id))
         (message "Paste created: %s" http-url)
         (when esa-view-esa
           (browse-url http-url))))
      (t
-      (message "Paste is %s"
-               (esa--err-propertize "failed"))))
+      (message "Paste is %s" json
+               ;; (esa--err-propertize "failed")
+               )))
     (when http-url
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
