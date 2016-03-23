@@ -129,18 +129,16 @@ Copies the URL into the kill ring.
 With a prefix argument, makes a wip paste."
   (interactive "r\nP")
   (let* ((name (read-from-minibuffer "Name: "))
-         (filename ""))
+         (category (read-from-minibuffer "Category: ")))
     (esa-request
      "POST"
      (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
      'esa-created-callback
      `(("post" .
-        (("name" . "test_3")
-         ("body_md" . "foo")
-         ("tags" . '())
-         ("category" . "")
+        (("name" . ,name)
+         ("body_md" . ,(buffer-substring begin end))
+         ("category" . ,category)
          ("wip" . ,(if wip 't :json-false))
-         ("message" . "")
          ))))))
 (defun esa-single-file-name ()
   (let* ((file (or (buffer-file-name) (buffer-name)))
@@ -212,24 +210,20 @@ the URL into the kill ring."
     (esa-buffer t)))
 (defun esa-created-callback (status url json)
   (let ((json (save-excursion
-                    (goto-char (point-min))
-                    (when (re-search-forward "^\r?$" nil t)
-                      (esa--read-json (point) (point-max)))
-                    ))
+                (goto-char (point-min))
+                (when (re-search-forward "^\r?$" nil t)
+                  (esa--read-json (point) (point-max)))
+                ))
         (http-url))
     (cond
-     ;; TODO: check redirected json indicate public/private esa url
-     ((and (stringp json)
-           (string-match "\\([0-9]+\\|[0-9a-zA-Z]\\{20\\}\\)$" json))
-      (let ((id (match-string 1 json)))
-        (setq http-url (format "https://%s.esa.io/posts/%s" esa-team-name id))
+     ((json-alist-p json)
+      (let ((json-object-type 'hash-table))
+        (setq http-url (gethash "url" (json-read-from-string (json-encode json))))
         (message "Paste created: %s" http-url)
         (when esa-view-esa
           (browse-url http-url))))
      (t
-      (message "Paste is %s" json
-               ;; (esa--err-propertize "failed")
-               )))
+      (message (esa--err-propertize "failed"))))
     (when http-url
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
