@@ -67,8 +67,6 @@ posted."
 (defvar esa-authenticate-function nil
   "Authentication function symbol.")
 (make-obsolete-variable 'esa-authenticate-function nil "0.8.13")
-(defvar esa-list-items-per-page nil
-  "Number of esa to retrieve a page.")
 (defcustom esa-working-directory "~/.esa"
   "*Working directory where to go esa repository is."
   :type 'directory
@@ -217,11 +215,10 @@ the URL into the kill ring."
         (http-url))
     (cond
      ((json-alist-p json)
-      (let ((json-object-type 'hash-table))
-        (setq http-url (gethash "url" (json-read-from-string (json-encode json))))
-        (message "Paste created: %s" http-url)
-        (when esa-view-esa
-          (browse-url http-url))))
+      (setq http-url (cdr (assq 'url json)))
+      (message "Paste created: %s" http-url)
+      (when esa-view-esa
+        (browse-url http-url)))
      (t
       (message (esa--err-propertize "failed"))))
     (when http-url
@@ -236,57 +233,37 @@ the URL into the kill ring."
     (define-key map "n" 'forward-line)
     (define-key map "q" 'esa-quit-window)
     map))
-(defvar esa-list--paging-info nil)
-(make-variable-buffer-local 'esa-list--paging-info)
 (define-derived-mode esa-list-mode fundamental-mode "Esa"
   "Show your esa list"
   (setq buffer-read-only t)
   (setq truncate-lines t)
   (set (make-local-variable 'revert-buffer-function)
        'esa-list-revert-buffer)
-  (add-hook 'post-command-hook 'esa-list--paging-retrieve nil t)
   (use-local-map esa-list-mode-map))
 ;;;###autoload
 (defun esa-list ()
   "Displays a list of all of the current user's esas in a new buffer."
   (interactive)
   (message "Retrieving list of your esas...")
-  (esa-list-draw-esas 1))
+  (esa-list-draw-esas))
 (defun esa-quit-window (&optional kill-buffer)
   "Bury the *esas* buffer and delete its window.
 With a prefix argument, kill the buffer instead."
   (interactive "P")
   (quit-window kill-buffer))
-(defun esa-list--paging-retrieve ()
-  (cond
-   ((null esa-list--paging-info))
-   ((eq esa-list--paging-info t))
-   (t
-    (cl-destructuring-bind (page . max) esa-list--paging-info
-      (cond
-       ((or (not (numberp page))
-            (not (numberp max))))       ; Now retrieving
-       ((not (eobp)))
-       ((= page max)
-        (message "No more next page"))
-       (t
-        (esa-list-draw-esas (1+ page))))))))
-(defun esa-list-draw-esas (page)
+(defun esa-list-draw-esas (&optional q)
   (with-current-buffer (get-buffer-create "*esas*")
-    (when (= page 1)
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (esa-list-mode)
-        (esa-insert-list-header)))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (esa-list-mode)
+      (esa-insert-list-header))
     ;; suppress multiple retrieving
     (setq esa-list--paging-info t))
   (esa-request
    "GET"
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
    'esa-lists-retrieved-callback
-   `(,@(and esa-list-items-per-page
-            `(("per_page" . ,esa-list-items-per-page)))
-     ("page" . ,page))))
+   `(("q" . ,q))))
 (defun esa-list-revert-buffer (&rest ignore)
   ;; redraw esa list
   (esa-list))
@@ -299,31 +276,18 @@ With a prefix argument, kill the buffer instead."
   "Called when the list of esas has been retrieved. Parses the result
 and displays the list."
   (goto-char (point-min))
-  (let ((max-page
-         ;; search http headaer
-         (and (re-search-forward "<\\([^>]+\\)>; *rel=\"last\"" nil t)
-              (let ((url (match-string 1)))
-                (and (string-match "\\?\\(.*\\)" url)
-                     (let* ((query (match-string 1 url))
-                            (params (url-parse-query-string query))
-                            (max-page (cadr (assoc "page" params))))
-                       (when (string-match "\\`[0-9]+\\'" max-page)
-                         (string-to-number max-page))))))))
-    (when (re-search-forward "^\r?$" nil t)
-      (let* ((json (esa--read-json (point) (point-max)))
-             (page (cdr (assoc "page" params))))
-        (with-current-buffer (get-buffer-create "*esas*")
-          (save-excursion
-            (let ((inhibit-read-only t))
-              (goto-char (point-max))
-              (mapc 'esa-insert-esa-link json)))
-          ;; no max-page means last-page
-          (setq esa-list--paging-info
-                (cons page (or max-page page)))
-          ;; skip header
-          (forward-line)
-          (set-window-buffer nil (current-buffer)))))
-    (url-mark-buffer-as-dead (current-buffer))))
+  (when (re-search-forward "^\r?$" nil t)
+    (let* ((json (esa--read-json (point) (point-max))))
+      (with-current-buffer (get-buffer-create "*esas*")
+        (message json)
+        (save-excursion
+          (let ((inhibit-read-only t))
+            (goto-char (point-max))
+            (mapc 'esa-insert-esa-link json)))
+        ;; skip header
+        (forward-line)
+        (set-window-buffer nil (current-buffer)))))
+  (url-mark-buffer-as-dead (current-buffer)))
 
 ;; DELETE /v1/teams/%s/posts/%s
 (defun esa-delete (id)
