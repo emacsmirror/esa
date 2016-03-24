@@ -279,7 +279,6 @@ and displays the list."
   (when (re-search-forward "^\r?$" nil t)
     (let* ((json (esa--read-json (point) (point-max))))
       (with-current-buffer (get-buffer-create "*esas*")
-        (message json)
         (save-excursion
           (let ((inhibit-read-only t))
             (goto-char (point-max))
@@ -409,20 +408,20 @@ Edit the esa description."
 (defun esa-parse-esa (esa)
   "Returns a list of the esa's attributes for display, given the xml list
 for the esa."
-  (let ((repo (cdr (assq 'id esa)))
+  (let ((repo (cdr (assq 'number esa)))
         (updated-at (cdr (assq 'updated_at esa)))
-        (description (cdr (assq 'description esa)))
-        (visibility (if (eq (cdr (assq 'public esa)) 't)
-                        "public"
-                      "private")))
+        (body_md (cdr (assq 'body_md esa)))
+        (progress (if (eq (cdr (assq 'wip esa)) 't)
+                        "wip"
+                      "ship")))
     (list repo
           (esa-fill-string repo 8)
           (esa-fill-string
            (format-time-string
             esa-display-date-format (esa-parse-time-string updated-at))
            20)
-          (esa-fill-string visibility 7)
-          (or description ""))))
+          (esa-fill-string progress 5)
+          (or body_md ""))))
 (defun esa-parse-time-string (string)
   (let* ((times (split-string string "[-T:Z]" t))
          (getter (lambda (x) (string-to-number (nth x times))))
