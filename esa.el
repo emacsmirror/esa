@@ -262,8 +262,7 @@ With a prefix argument, kill the buffer instead."
    "GET"
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
    'esa-lists-retrieved-callback
-   ;; `(("q" . ,q))
-   ))
+   (if q `(("q" . ,q)))))
 (defun esa-list-revert-buffer (&rest ignore)
   ;; redraw esa list
   (esa-list))
@@ -284,8 +283,7 @@ and displays the list."
         (save-excursion
           (let ((inhibit-read-only t))
             (goto-char (point-max))
-            (mapc 'esa-insert-esa-link json)
-            ))
+            (mapc 'esa-insert-esa-link json)))
         ;; skip header
         (forward-line)
         (set-window-buffer nil (current-buffer)))))
@@ -313,7 +311,7 @@ and displays the list."
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
-    (insert "  Number   Updated                  Visibility  Full Name               "
+    (insert "  Number  Updated              Progress  Full Name               "
             (esa-fill-string "" (frame-width))
             "\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
@@ -357,10 +355,10 @@ and displays the list."
         (full_name (cdr (assq 'full_name esa)))
         (url (cdr (assq 'url esa)))
         (updated (cdr (assq 'updated_at esa)))
-        (publicp (eq (cdr (assq 'wip esa)) nil)))
+        (progress (eq (cdr (assq 'wip esa)) nil)))
     (insert
-     (if publicp
-    (propertize "Esa on Ship"
+     (if progress
+         (propertize "Esa on Ship"
                      'font-lock-face `(bold underline ,font-lock-warning-face))
        (propertize "Esa on WIP"
                    'font-lock-face '(bold underline)))
@@ -414,14 +412,14 @@ for the esa."
         (updated-at (cdr (assq 'updated_at esa)))
         (full_name (cdr (assq 'full_name esa)))
         (progress (if (eq (cdr (assq 'wip esa)) 't)
-                      "wip"
-                    "ship")))
+                      "WIP"
+                    "Ship")))
     (list number
-          (esa-fill-string number 6)
+          (esa-fill-string (number-to-string number) 3)
           (esa-fill-string
            (format-time-string
             esa-display-date-format (esa-parse-time-string updated-at))
-           20)
+           16)
           (esa-fill-string progress 5)
           (or full_name ""))))
 (defun esa-parse-time-string (string)
@@ -436,9 +434,9 @@ for the esa."
     (encode-time sec min hour day month year 0)))
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
-(defconst esa-repository-url-format "https://%s.esa.io/posts/%s")
+(defconst esa-repository-url-format (concat (format "https://%s.esa.io/posts/" esa-team-name) "%s"))
 (defun esa-fetch (number)
-  (let* ((url (format esa-repository-url-format esa-team-name number))
+  (let* ((url (format esa-repository-url-format number))
          (working-copy (esa-working-copy-directory number)))
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
