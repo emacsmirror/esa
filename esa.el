@@ -72,7 +72,7 @@ posted."
   :type 'directory
   :group 'esa)
 (defcustom esa-working-directory-alist nil
-  "*Alist of esa id as key, value is directory path.
+  "*Alist of esa numer as key, value is directory path.
 .
 Example:
 \(setq esa-working-directory-alist
@@ -210,8 +210,7 @@ the URL into the kill ring."
   (let ((json (save-excursion
                 (goto-char (point-min))
                 (when (re-search-forward "^\r?$" nil t)
-                  (esa--read-json (point) (point-max)))
-                ))
+                  (esa--read-json (point) (point-max)))))
         (http-url))
     (cond
      ((json-alist-p json)
@@ -263,7 +262,8 @@ With a prefix argument, kill the buffer instead."
    "GET"
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
    'esa-lists-retrieved-callback
-   `(("q" . ,q))))
+   ;; `(("q" . ,q))
+   ))
 (defun esa-list-revert-buffer (&rest ignore)
   ;; redraw esa list
   (esa-list))
@@ -277,32 +277,35 @@ With a prefix argument, kill the buffer instead."
 and displays the list."
   (goto-char (point-min))
   (when (re-search-forward "^\r?$" nil t)
-    (let* ((json (esa--read-json (point) (point-max))))
+    (let* ((json (append
+                  (cdr (assq 'posts (esa--read-json (point) (point-max))))
+                  nil)))
       (with-current-buffer (get-buffer-create "*esas*")
         (save-excursion
           (let ((inhibit-read-only t))
             (goto-char (point-max))
-            (mapc 'esa-insert-esa-link json)))
+            (mapc 'esa-insert-esa-link json)
+            ))
         ;; skip header
         (forward-line)
         (set-window-buffer nil (current-buffer)))))
   (url-mark-buffer-as-dead (current-buffer)))
 
 ;; DELETE /v1/teams/%s/posts/%s
-(defun esa-delete (id)
+(defun esa-delete (number)
   (esa-request
    "DELETE"
-   (format "https://api.esa.io/v1/%s/posts/%s" esa-team-name id)
+   (format "https://api.esa.io/v1/%s/posts/%s" esa-team-name number)
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
-(defun esa-update (id description)
+(defun esa-update (number full_name)
   (esa-request
    "PATCH"
-   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name id)
+   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
    (esa-simple-receiver "Update")
-   `(,@(and description
-            `(("description" . ,description))))))
+   `(,@(and full_name
+            `(("full_name" . ,full_name))))))
 
 
 ;;; Components:
@@ -310,8 +313,7 @@ and displays the list."
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
-    (insert "  ID           Updated                "
-            "  Visibility  Description             "
+    (insert "  Number   Updated                  Visibility  Full Name               "
             (esa-fill-string "" (frame-width))
             "\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
@@ -320,11 +322,11 @@ and displays the list."
 (defun esa-insert-esa-link (esa)
   "Inserts a button that will open the given esa when pressed."
   (let* ((data (esa-parse-esa esa))
-         (repo (car data)))
+         (number (cdr (assq 'number data))))
     (dolist (x (cdr data))
       (insert (format "  %s   " x)))
     (make-text-button (line-beginning-position) (line-end-position)
-                      'repo repo
+                      'repo number
                       'action 'esa-describe-button
                       'face 'default
                       'esa-json esa))
@@ -341,30 +343,30 @@ and displays the list."
                                 :background "light grey"
                                 :foreground "black")
                        'link))
-        (id (cdr (assq 'id json))))
+        (number (cdr (assq 'number json))))
     (insert-text-button button-text
                         'face button-face
                         'follow-link t
                         'action action
-                        'repo id
+                        'repo number
                         'esa-json json)
     (insert " ")))
 (defun esa-describe-esa-1 (esa)
   (require 'lisp-mnt)
-  (let ((id (cdr (assq 'id esa)))
-        (description (cdr (assq 'description esa)))
-        (url (cdr (assq 'html_url esa)))
+  (let ((number (cdr (assq 'number esa)))
+        (full_name (cdr (assq 'full_name esa)))
+        (url (cdr (assq 'url esa)))
         (updated (cdr (assq 'updated_at esa)))
-        (publicp (eq (cdr (assq 'public esa)) t)))
+        (publicp (eq (cdr (assq 'wip esa)) nil)))
     (insert
      (if publicp
-    (propertize "Public Esa"
+    (propertize "Esa on Ship"
                      'font-lock-face `(bold underline ,font-lock-warning-face))
-       (propertize "Private Esa"
+       (propertize "Esa on WIP"
                    'font-lock-face '(bold underline)))
      "\n")
-    (insert "  " (propertize "Description: " 'font-lock-face 'bold)
-            (or description "") "\n")
+    (insert "  " (propertize "Full Name: " 'font-lock-face 'bold)
+            (or full_name "") "\n")
     (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
     (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
             (format-time-string
@@ -377,7 +379,7 @@ and displays the list."
      "Browse" 'esa-open-web-button esa)
     (insert "\n\n")
     (esa-describe-insert-button
-     "Edit Description" 'esa-update-button esa)
+     "Edit Full Name" 'esa-update-button esa)
     (esa-describe-insert-button
      "Delete Esa" 'esa-delete-button esa)))
 (defun esa-fetch-button (button)
@@ -396,32 +398,32 @@ Confirm and delete the esa."
   "Called when a esa [Edit] button has been pressed.
 Edit the esa description."
   (let* ((json (button-get button 'esa-json))
-         (desc (read-from-minibuffer
-                "Description: "
-                (cdr (assq 'description json)))))
-    (esa-update (button-get button 'repo) desc)))
+         (full_name (read-from-minibuffer
+                "Full Name: "
+                (cdr (assq 'full_name json)))))
+    (esa-update (button-get button 'repo) full_name)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
-         (url (cdr (assq 'html_url json))))
+         (url (cdr (assq 'url json))))
     (browse-url url)))
 (defun esa-parse-esa (esa)
   "Returns a list of the esa's attributes for display, given the xml list
 for the esa."
-  (let ((repo (cdr (assq 'number esa)))
+  (let ((number (cdr (assq 'number esa)))
         (updated-at (cdr (assq 'updated_at esa)))
-        (body_md (cdr (assq 'body_md esa)))
+        (full_name (cdr (assq 'full_name esa)))
         (progress (if (eq (cdr (assq 'wip esa)) 't)
-                        "wip"
-                      "ship")))
-    (list repo
-          (esa-fill-string repo 8)
+                      "wip"
+                    "ship")))
+    (list number
+          (esa-fill-string number 6)
           (esa-fill-string
            (format-time-string
             esa-display-date-format (esa-parse-time-string updated-at))
            20)
           (esa-fill-string progress 5)
-          (or body_md ""))))
+          (or full_name ""))))
 (defun esa-parse-time-string (string)
   (let* ((times (split-string string "[-T:Z]" t))
          (getter (lambda (x) (string-to-number (nth x times))))
@@ -435,9 +437,9 @@ for the esa."
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
 (defconst esa-repository-url-format "https://%s.esa.io/posts/%s")
-(defun esa-fetch (id)
-  (let* ((url (format esa-repository-url-format esa-team-name id))
-         (working-copy (esa-working-copy-directory id)))
+(defun esa-fetch (number)
+  (let* ((url (format esa-repository-url-format esa-team-name number))
+         (working-copy (esa-working-copy-directory number)))
     (cond
      ((not (file-directory-p (expand-file-name ".git" working-copy)))
       (message "Cloning %s into working copy..." url)
@@ -467,13 +469,13 @@ for the esa."
                        (revert-buffer)))))
                (kill-buffer (process-buffer p)))))
     proc))
-(defun esa-working-copy-directory (id)
-  (let* ((pair (assoc id esa-working-directory-alist))
+(defun esa-working-copy-directory (number)
+  (let* ((pair (assoc number esa-working-directory-alist))
          (dir (cond
                (pair
                 (cdr pair))
                (t
-                (expand-file-name id esa-working-directory)))))
+                (expand-file-name number esa-working-directory)))))
     (unless (file-directory-p dir)
       (make-directory dir t))
     dir))
