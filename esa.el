@@ -264,13 +264,13 @@ and displays the list."
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
-(defun esa-update-full-name (number full_name)
+(defun esa-update-name (number name)
   (esa-request
    "PATCH"
    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
-   (esa-simple-receiver "Update full name")
-   `(,@(and full_name
-            `(("full_name" . ,full_name))))))
+   (esa-simple-receiver "Update name")
+   `(,@(and name
+            `(("name" . ,name))))))
 (defun esa-update-body-md (number body_md)
   (esa-request
    "PATCH"
@@ -337,7 +337,7 @@ for the esa."
 ;; button partial
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
-    (with-help-window (help-buffer)
+    (with-help-window "*esa*"
       (with-current-buffer standard-output
         (esa-describe-esa-1 json)))))
 (defun esa-describe-insert-button (text action json)
@@ -377,7 +377,7 @@ for the esa."
     (esa-describe-insert-button "Fetch Repository" 'esa-fetch-button esa)
     (esa-describe-insert-button "Browse" 'esa-open-web-button esa)
     (insert "\n\n")
-    (esa-describe-insert-button "Edit Full Name" 'esa-update-full-name-button esa)
+    (esa-describe-insert-button "Edit Name" 'esa-update-name-button esa)
     (esa-describe-insert-button "Edit Body.md" 'esa-update-body-md-button esa)
     (insert "\n\n")
     (esa-describe-insert-button "Delete Esa" 'esa-delete-button esa)))
@@ -393,17 +393,17 @@ into the user selected directory."
 Confirm and delete the esa."
   (when (y-or-n-p "Really delete this esa? ")
     (esa-delete (button-get button 'repo))))
-(defun esa-update-full-name-button (button)
+(defun esa-update-name-button (button)
   "Called when a esa [Edit] button has been pressed.
-Edit the esa description."
+Edit the esa name."
   (let* ((json (button-get button 'esa-json))
-         (full_name (read-from-minibuffer
-                "Full Name: "
-                (cdr (assq 'full_name json)))))
-    (esa-update-full-name (button-get button 'repo) full_name)))
+         (name (read-from-minibuffer
+                "Name: "
+                (cdr (assq 'name json)))))
+    (esa-update-name (button-get button 'repo) name)))
 (defun esa-update-body-md-button (button)
   "Called when a esa [Edit] button has been pressed.
-Edit the esa description."
+Edit the esa body_md."
   (let* ((json (button-get button 'esa-json))
          (body_md (read-from-minibuffer
                 "Body.md: "
@@ -485,7 +485,6 @@ Edit the esa description."
     (esa-request-0
      (format "Bearer %s" token)
      method url callback json-or-params)))
-;; http://developer.github.com/v3/oauth/#non-web-application-flow
 (defun esa-check-oauth-token ()
   (cond
    (esa-token)
@@ -497,15 +496,19 @@ Edit the esa description."
 (defun esa-simple-receiver (message)
   ;; Create a receiver of `esa-request-0'
   `(lambda (status url json-or-params)
-  (goto-char (point-min))
-  (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
+     (goto-char (point-min))
+     (when (re-search-forward "^HTTP/1.1 \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
          (if (and (<= 200 code) (< code 300))
-    (message "%s succeeded" ,message)
-  (message "%s %s"
-                    ,message
+             (progn (switch-to-buffer "*esa*")
+                    (kill-buffer-and-window)
+                    (esa-list)
+                    (message "%s succeeded" ,message))
+           (message "%s %s"
+                    code
+                    ;; ,message
                     (esa--err-propertize "failed")))))
-  (url-mark-buffer-as-dead (current-buffer))))
+     (url-mark-buffer-as-dead (current-buffer))))
 
 ;; exception handling
 (defun esa--err-propertize (string)
