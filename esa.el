@@ -260,7 +260,7 @@ and displays the list."
 (defun esa-delete (number)
   (esa-request
    "DELETE"
-   (format "https://api.esa.io/v1/%s/posts/%s" esa-team-name number)
+   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
@@ -391,7 +391,7 @@ for the esa."
 (defun esa-delete-button (button)
   "Called when a esa [Delete] button has been pressed.
 Confirm and delete the esa."
-  (when (y-or-n-p "Really delete this esa? ")
+  (when (y-or-n-p "Really delete this esa entry? ")
     (esa-delete (button-get button 'repo))))
 (defun esa-update-body-md-button (button)
   "Called when a esa [Edit] button has been pressed.
