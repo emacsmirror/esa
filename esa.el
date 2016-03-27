@@ -372,7 +372,7 @@ for the esa."
         (url (cdr (assq 'url esa)))
         (body_md (cdr (assq 'body_md esa))))
     (insert "    ") (esa-describe-insert-button "Name:" 'esa-update-name-button esa) (insert (or name "") "\n")
-    (insert "") (esa-describe-insert-button "Category:" 'esa-update-name-button esa) (insert (or category "") "\n")
+    (insert "") (esa-describe-insert-button "Category:" 'esa-update-category-button esa) (insert (or category "") "\n")
     (insert "Progress:"
      (if progress
          (propertize " Ship" 'font-lock-face `(bold ,font-lock-warning-face))
