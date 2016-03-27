@@ -264,13 +264,20 @@ and displays the list."
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
-(defun esa-update (number full_name)
+(defun esa-update-full-name (number full_name)
   (esa-request
    "PATCH"
    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
-   (esa-simple-receiver "Update")
+   (esa-simple-receiver "Update full name")
    `(,@(and full_name
             `(("full_name" . ,full_name))))))
+(defun esa-update-body-md (number body_md)
+  (esa-request
+   "PATCH"
+   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
+   (esa-simple-receiver "Update body.md")
+   `(,@(and body_md
+            `(("body_md" . ,body_md))))))
 
 
 ;;; Components:
@@ -357,28 +364,23 @@ for the esa."
         (progress (eq (cdr (assq 'wip esa)) nil)))
     (insert
      (if progress
-         (propertize "Esa on Ship"
-                     'font-lock-face `(bold underline ,font-lock-warning-face))
-       (propertize "Esa on WIP"
-                   'font-lock-face '(bold underline)))
+         (propertize "Esa on Ship" 'font-lock-face `(bold underline ,font-lock-warning-face))
+       (propertize "Esa on WIP" 'font-lock-face '(bold underline)))
      "\n")
-    (insert "  " (propertize "Full Name: " 'font-lock-face 'bold)
-            (or full_name "") "\n")
-    (insert "          " (propertize "URL: " 'font-lock-face 'bold) url "\n")
-    (insert "      " (propertize "Updated: " 'font-lock-face 'bold)
+    (insert "  " (propertize "Full Name: " 'font-lock-face 'bold) (or full_name "") "\n")
+    (insert "        " (propertize "URL: " 'font-lock-face 'bold) url "\n")
+    (insert "    " (propertize "Updated: " 'font-lock-face 'bold)
             (format-time-string
              esa-display-date-format
              (esa-parse-time-string updated)) "\n")
     (insert "\n\n")
-    (esa-describe-insert-button
-     "Fetch Repository" 'esa-fetch-button esa)
-    (esa-describe-insert-button
-     "Browse" 'esa-open-web-button esa)
+    (esa-describe-insert-button "Fetch Repository" 'esa-fetch-button esa)
+    (esa-describe-insert-button "Browse" 'esa-open-web-button esa)
     (insert "\n\n")
-    (esa-describe-insert-button
-     "Edit Full Name" 'esa-update-button esa)
-    (esa-describe-insert-button
-     "Delete Esa" 'esa-delete-button esa)))
+    (esa-describe-insert-button "Edit Full Name" 'esa-update-full-name-button esa)
+    (esa-describe-insert-button "Edit Body.md" 'esa-update-body-md-button esa)
+    (insert "\n\n")
+    (esa-describe-insert-button "Delete Esa" 'esa-delete-button esa)))
 (defun esa-fetch-button (button)
   "Called when a esa [Fetch] button has been pressed.
 Fetche esa repository and open the directory.
@@ -391,14 +393,22 @@ into the user selected directory."
 Confirm and delete the esa."
   (when (y-or-n-p "Really delete this esa? ")
     (esa-delete (button-get button 'repo))))
-(defun esa-update-button (button)
+(defun esa-update-full-name-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa description."
   (let* ((json (button-get button 'esa-json))
          (full_name (read-from-minibuffer
                 "Full Name: "
                 (cdr (assq 'full_name json)))))
-    (esa-update (button-get button 'repo) full_name)))
+    (esa-update-full-name (button-get button 'repo) full_name)))
+(defun esa-update-body-md-button (button)
+  "Called when a esa [Edit] button has been pressed.
+Edit the esa description."
+  (let* ((json (button-get button 'esa-json))
+         (body_md (read-from-minibuffer
+                "Body.md: "
+                (cdr (assq 'body_md json)))))
+    (esa-update-body-md (button-get button 'repo) body_md)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
@@ -483,6 +493,7 @@ Edit the esa description."
     (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
     (error "You need to get OAuth Access Token by your browser"))))
 
+;; callback
 (defun esa-simple-receiver (message)
   ;; Create a receiver of `esa-request-0'
   `(lambda (status url json-or-params)
@@ -495,6 +506,8 @@ Edit the esa description."
                     ,message
                     (esa--err-propertize "failed")))))
   (url-mark-buffer-as-dead (current-buffer))))
+
+;; exception handling
 (defun esa--err-propertize (string)
   (propertize string 'face 'font-lock-warning-face))
 
