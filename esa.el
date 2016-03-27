@@ -83,39 +83,6 @@ Example:
   :group 'esa)
 
 
-;;; Dispatcher:
-
-(defun esa--read-json (start end)
-  (let* ((str (buffer-substring start end))
-         (decoded (decode-coding-string str 'utf-8)))
-    (json-read-from-string decoded)))
-(defun esa-request-0 (auth method url callback &optional json-or-params)
-  (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
-         (params (and (member method '("GET" "DELETE")) json-or-params))
-         (url-request-data (and json (concat (json-encode json) "\n")))
-         (url-request-extra-headers
-          `(("Authorization" . ,auth)
-            ("Content-Type" . "application/json;charset=UTF-8")))
-         (url-request-method method)
-         (url-max-redirection -1)
-         (url (if params
-                  (concat url "?" (esa-make-query-string params))
-                url)))
-    (url-retrieve url callback (list url json-or-params))))
-(defun esa-request (method url callback &optional json-or-params)
-  (let ((token (esa-check-oauth-token)))
-    (esa-request-0
-     (format "Bearer %s" token)
-     method url callback json-or-params)))
-;; http://developer.github.com/v3/oauth/#non-web-application-flow
-(defun esa-check-oauth-token ()
-  (cond
-   (esa-token)
-   (t
-    (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
-    (error "You need to get OAuth Access Token by your browser"))))
-
-
 ;;; Stores:
 
 ;; POST /v1/teams/%s/posts
@@ -308,10 +275,11 @@ and displays the list."
 
 ;;; Components:
 
+;; list partial
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
-    (insert "  Number  Updated              Progress  Full Name               "
+    (insert "  No   Updated           Prog   Full Name               "
             (esa-fill-string "" (frame-width))
             "\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
@@ -322,13 +290,44 @@ and displays the list."
   (let* ((data (esa-parse-esa esa))
          (number (cdr (assq 'number data))))
     (dolist (x (cdr data))
-      (insert (format "  %s   " x)))
+      (insert (format "  %s" x)))
     (make-text-button (line-beginning-position) (line-end-position)
                       'repo number
                       'action 'esa-describe-button
                       'face 'default
                       'esa-json esa))
   (insert "\n"))
+(defun esa-parse-esa (esa)
+  "Returns a list of the esa's attributes for display, given the xml list
+for the esa."
+  (let ((number (cdr (assq 'number esa)))
+        (updated-at (cdr (assq 'updated_at esa)))
+        (full_name (cdr (assq 'full_name esa)))
+        (progress (if (eq (cdr (assq 'wip esa)) 't)
+                      "WIP"
+                    "Ship")))
+    (list number
+          (esa-fill-string (number-to-string number) 3)
+          (esa-fill-string
+           (format-time-string
+            esa-display-date-format (esa-parse-time-string updated-at))
+           16)
+          (esa-fill-string progress 5)
+          (or full_name ""))))
+(defun esa-parse-time-string (string)
+  (let* ((times (split-string string "[-T:Z]" t))
+         (getter (lambda (x) (string-to-number (nth x times))))
+         (year (funcall getter 0))
+         (month (funcall getter 1))
+         (day (funcall getter 2))
+         (hour (funcall getter 3))
+         (min (funcall getter 4))
+         (sec (funcall getter 5)))
+    (encode-time sec min hour day month year 0)))
+(defun esa-fill-string (string width)
+  (truncate-string-to-width string width nil ?\s "..."))
+
+;; button partial
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-help-window (help-buffer)
@@ -405,35 +404,7 @@ Edit the esa description."
   (let* ((json (button-get button 'esa-json))
          (url (cdr (assq 'url json))))
     (browse-url url)))
-(defun esa-parse-esa (esa)
-  "Returns a list of the esa's attributes for display, given the xml list
-for the esa."
-  (let ((number (cdr (assq 'number esa)))
-        (updated-at (cdr (assq 'updated_at esa)))
-        (full_name (cdr (assq 'full_name esa)))
-        (progress (if (eq (cdr (assq 'wip esa)) 't)
-                      "WIP"
-                    "Ship")))
-    (list number
-          (esa-fill-string (number-to-string number) 3)
-          (esa-fill-string
-           (format-time-string
-            esa-display-date-format (esa-parse-time-string updated-at))
-           16)
-          (esa-fill-string progress 5)
-          (or full_name ""))))
-(defun esa-parse-time-string (string)
-  (let* ((times (split-string string "[-T:Z]" t))
-         (getter (lambda (x) (string-to-number (nth x times))))
-         (year (funcall getter 0))
-         (month (funcall getter 1))
-         (day (funcall getter 2))
-         (hour (funcall getter 3))
-         (min (funcall getter 4))
-         (sec (funcall getter 5)))
-    (encode-time sec min hour day month year 0)))
-(defun esa-fill-string (string width)
-  (truncate-string-to-width string width nil ?\s "..."))
+
 (defconst esa-repository-url-format (concat (format "https://%s.esa.io/posts/" esa-team-name) "%s"))
 (defun esa-fetch (number)
   (let* ((url (format esa-repository-url-format number))
@@ -481,18 +452,49 @@ for the esa."
 
 ;;; Utilities:
 
+;; rest client
+(defun esa--read-json (start end)
+  (let* ((str (buffer-substring start end))
+         (decoded (decode-coding-string str 'utf-8)))
+    (json-read-from-string decoded)))
+(defun esa-request-0 (auth method url callback &optional json-or-params)
+  (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
+         (params (and (member method '("GET" "DELETE")) json-or-params))
+         (url-request-data (and json (concat (json-encode json) "\n")))
+         (url-request-extra-headers
+          `(("Authorization" . ,auth)
+            ("Content-Type" . "application/json;charset=UTF-8")))
+         (url-request-method method)
+         (url-max-redirection -1)
+         (url (if params
+                  (concat url "?" (esa-make-query-string params))
+                url)))
+    (url-retrieve url callback (list url json-or-params))))
+(defun esa-request (method url callback &optional json-or-params)
+  (let ((token (esa-check-oauth-token)))
+    (esa-request-0
+     (format "Bearer %s" token)
+     method url callback json-or-params)))
+;; http://developer.github.com/v3/oauth/#non-web-application-flow
+(defun esa-check-oauth-token ()
+  (cond
+   (esa-token)
+   (t
+    (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
+    (error "You need to get OAuth Access Token by your browser"))))
+
 (defun esa-simple-receiver (message)
   ;; Create a receiver of `esa-request-0'
   `(lambda (status url json-or-params)
-     (goto-char (point-min))
-     (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
+  (goto-char (point-min))
+  (when (re-search-forward "^Status: \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
          (if (and (<= 200 code) (< code 300))
-             (message "%s succeeded" ,message)
-           (message "%s %s"
+    (message "%s succeeded" ,message)
+  (message "%s %s"
                     ,message
                     (esa--err-propertize "failed")))))
-     (url-mark-buffer-as-dead (current-buffer))))
+  (url-mark-buffer-as-dead (current-buffer))))
 (defun esa--err-propertize (string)
   (propertize string 'face 'font-lock-warning-face))
 
