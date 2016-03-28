@@ -30,7 +30,6 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Remove carriage return code from body_md
 ;; - Display esa post in other buffer, not in help-buffer
 ;; - Add function to edit body_md with use of esa-buffer-*
 ;; - Add toggle function for progress (WIP/Ship)
@@ -378,7 +377,7 @@ for the esa."
         (progress (eq (cdr (assq 'wip esa)) nil))
         (updated (cdr (assq 'updated_at esa)))
         (url (cdr (assq 'url esa)))
-        (body_md (cdr (assq 'body_md esa))))
+        (body_md (replace-regexp-in-string "" "" (cdr (assq 'body_md esa)))))
     (insert "    ") (esa-describe-insert-button "Name:" 'esa-update-name-button esa) (insert (or name "") "\n")
     (insert "") (esa-describe-insert-button "Category:" 'esa-update-category-button esa) (insert (or category "") "\n")
     (insert "Progress:"
@@ -407,7 +406,7 @@ Edit the esa body_md."
   (let* ((json (button-get button 'esa-json))
          (body_md (read-from-minibuffer
                 "Body.md: "
-                (cdr (assq 'body_md json)))))
+                (replace-regexp-in-string "" "" (cdr (assq 'body_md json))))))
     (esa-update-body-md (button-get button 'repo) body_md)))
 (defun esa-update-name-button (button)
   "Called when a esa [Edit] button has been pressed.
