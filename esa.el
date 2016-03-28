@@ -30,6 +30,10 @@
 ;;; Commentary:
 
 ;; TODO:
+;; - Remove carriage return code from body_md
+;; - Display esa post in other buffer, not in help-buffer
+;; - Add function to edit body_md with use of esa-buffer-*
+;; - Add toggle function for progress (WIP/Ship)
 ;; - Encrypt risky configs
 
 ;;; Code:
@@ -289,7 +293,7 @@ and displays the list."
 
 ;;; Components:
 
-;; esa entries list (esas)
+;; esa posts list (esas)
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
@@ -341,7 +345,11 @@ for the esa."
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
 
-;; esa entry (esa)
+;; esa post (esa)
+(define-derived-mode esa-post-mode fundamental-mode "Esa Post"
+  "Show your esa post"
+  (setq buffer-read-only nil)
+  (setq truncate-lines nil))
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-help-window "*esa*"
@@ -391,7 +399,7 @@ for the esa."
 (defun esa-delete-button (button)
   "Called when a esa [Delete] button has been pressed.
 Confirm and delete the esa."
-  (when (y-or-n-p "Really delete this esa entry? ")
+  (when (y-or-n-p "Really delete this esa post? ")
     (esa-delete (button-get button 'repo))))
 (defun esa-update-body-md-button (button)
   "Called when a esa [Edit] button has been pressed.
@@ -466,7 +474,7 @@ Edit the esa category."
          (if (and (<= 200 code) (< code 300))
              (progn (switch-to-buffer "*esa*")
                     (kill-buffer-and-window)
-                    (esa-list)
+                    (esa-list-revert-buffer)
                     (message "%s succeeded" ,message))
            (message "%s %s"
                     code
