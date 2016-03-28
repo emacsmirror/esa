@@ -30,7 +30,6 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Display esa post in other buffer, not in help-buffer
 ;; - Add function to edit body_md with use of esa-buffer-*
 ;; - Add toggle function for progress (WIP/Ship)
 ;; - Encrypt risky configs
@@ -345,19 +344,30 @@ for the esa."
   (truncate-string-to-width string width nil ?\s "..."))
 
 ;; esa post (esa)
+(defvar esa-list-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "g" 'revert-buffer)
+    (define-key map "p" 'previous-line)
+    (define-key map "n" 'forward-line)
+    (define-key map "q" 'esa-quit-window)
+    map))
 (define-derived-mode esa-post-mode fundamental-mode "Esa Post"
   "Show your esa post"
-  (setq buffer-read-only nil)
-  (setq truncate-lines nil))
+  (setq buffer-read-only t)
+  (setq truncate-lines nil)
+  (use-local-map esa-list-mode-map))
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
-    (with-help-window "*esa*"
-      (with-current-buffer standard-output
-        (esa-describe-esa-1 json)))))
+    (with-current-buffer (get-buffer-create "*esa*")
+      (setq buffer-read-only nil)
+      (erase-buffer)
+      (esa-describe-esa-1 json)
+      (esa-post-mode)
+      (switch-to-buffer "*esa*"))))
 (defun esa-describe-insert-button (text action json)
   (let ((button-text text)
         (button-face (if (display-graphic-p)
-                         '(:box (:line-width 2 :color "dark grey")
+    '(:box (:line-width 2 :color "dark grey")
                                 :background "light grey"
                                 :foreground "black")
                        'link))
