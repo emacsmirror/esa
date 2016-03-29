@@ -30,7 +30,7 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Add function to edit body_md with use of esa-buffer-*
+;; - Add function to edit body_md with use of with-current-buffer [1/2]
 ;; - Add toggle function for progress (WIP/Ship)
 ;; - Encrypt risky configs
 
@@ -291,7 +291,7 @@ and displays the list."
 
 ;;; Components:
 
-;; esa posts list (esas)
+;; esa list (esas)
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
@@ -343,26 +343,28 @@ for the esa."
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
 
-;; esa post (esa)
-(defvar esa-list-mode-map
+;; esa describe (esa)
+(defvar esa-describe-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" 'revert-buffer)
     (define-key map "p" 'previous-line)
     (define-key map "n" 'forward-line)
     (define-key map "q" 'esa-quit-window)
     map))
-(define-derived-mode esa-post-mode fundamental-mode "Esa Post"
-  "Show your esa post"
+(define-derived-mode esa-describe-mode fundamental-mode "Esa Describe"
+  "Show your esa describe"
   (setq buffer-read-only t)
   (setq truncate-lines nil)
-  (use-local-map esa-list-mode-map))
+  (use-local-map esa-describe-mode-map))
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-current-buffer (get-buffer-create "*esa*")
+      ;; TODO: recatoring (a)
       (setq buffer-read-only nil)
       (erase-buffer)
       (esa-describe-esa-1 json)
-      (esa-post-mode)
+      (goto-char (point-min))
+      (esa-describe-mode)
       (switch-to-buffer "*esa*"))))
 (defun esa-describe-insert-button (text action json)
   (let ((button-text text)
@@ -403,21 +405,38 @@ for the esa."
     (insert "-\n\n")
     (insert (or body_md "") "\n")
     (insert "\n\n")
-    (esa-describe-insert-button "[Edit]" 'esa-update-body-md-button esa)
-    (esa-describe-insert-button "[Delete]" 'esa-delete-button esa)))
-(defun esa-delete-button (button)
-  "Called when a esa [Delete] button has been pressed.
-Confirm and delete the esa."
-  (when (y-or-n-p "Really delete this esa post? ")
-    (esa-delete (button-get button 'repo))))
-(defun esa-update-body-md-button (button)
+    (esa-describe-insert-button "[Edit]" 'esa-edit-button esa)
+    (esa-describe-insert-button "[Delete]" 'esa-delete-button esa)
+    (goto-char (point-min))))
+
+;; esa edit
+(defvar esa-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "C-c C-k" 'command-kill-this-buffer)
+    map))
+(define-derived-mode esa-edit-mode fundamental-mode "Esa Edit"
+  "Show your esa edit"
+  (setq buffer-read-only nil)
+  (setq truncate-lines t))
+(defun esa-edit-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa body_md."
   (let* ((json (button-get button 'esa-json))
-         (body_md (read-from-minibuffer
-                "Body.md: "
-                (replace-regexp-in-string "" "" (cdr (assq 'body_md json))))))
-    (esa-update-body-md (button-get button 'repo) body_md)))
+         (body_md (replace-regexp-in-string "" "" (cdr (assq 'body_md json))))
+         (map (make-sparse-keymap)))
+    (with-current-buffer (get-buffer-create "*esa-edit*")
+      (esa-edit-mode)
+      (erase-buffer)
+      (insert (or body_md "") "\n")
+      (goto-char (point-min))
+      (switch-to-buffer "*esa-edit*")
+      ;; TODO:
+      (define-key map (kbd "C-c C-c") '(esa-update-body-md-button button))
+      (define-key map (kbd "C-c C-k") 'command-kill-this-buffer)
+      )
+    map))
+
+;; other buttons
 (defun esa-update-name-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa name."
@@ -439,6 +458,14 @@ Edit the esa category."
   (let* ((json (button-get button 'esa-json))
          (url (cdr (assq 'url json))))
     (browse-url url)))
+(defun esa-update-body-md-button (button)
+  (let* ((body_md (buffer-substring (point-min) (point-max))))
+    (esa-update-body-md (button-get button 'repo) body_md)))
+(defun esa-delete-button (button)
+  "Called when a esa [Delete] button has been pressed.
+Confirm and delete the esa."
+  (when (y-or-n-p "Really delete this esa post? ")
+    (esa-delete (button-get button 'repo))))
 
 
 ;;; Utilities:
