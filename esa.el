@@ -30,7 +30,6 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Add toggle function for progress (WIP/Ship)
 ;; - Add markdown-mode
 ;; - Add pagination function for esa-list
 ;; - Encrypt risky configs
@@ -274,27 +273,20 @@ and displays the list."
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
-(defun esa-update-body-md (number body_md)
+(defun esa-update (number name category body_md &optional wip)
   (esa-request
    "PATCH"
    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
    (esa-simple-receiver "Update body.md")
-   `(,@(and body_md
-            `(("body_md" . ,body_md))))))
-(defun esa-update-name (number name)
-  (esa-request
-   "PATCH"
-   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
-   (esa-simple-receiver "Update name")
-   `(,@(and name
-            `(("name" . ,name))))))
-(defun esa-update-category (number category)
-  (esa-request
-   "PATCH"
-   (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-category number)
-   (esa-simple-receiver "Update category")
-   `(,@(and category
-            `(("category" . ,category))))))
+   `(,@(cond
+        (name
+         `(("name" . ,name)))
+        (category
+         `(("category" . ,category)))
+        (body_md
+         `(("body_md" . ,body_md)
+           ("wip" . ,(if wip 't :json-false))))
+        ))))
 
 
 ;;; Components:
@@ -378,7 +370,8 @@ for the esa."
 (defvar esa-describe-write-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-k") 'kill-this-buffer)
-    (define-key map (kbd "C-c C-c") 'esa-update-body-md-command)
+    (define-key map (kbd "C-c C-c") 'esa-update-body-md-wip-command)
+    (define-key map (kbd "C-c C") 'esa-update-body-md-command)
     map))
 (define-derived-mode esa-describe-write-mode fundamental-mode "Esa Describe"
   "Show your esa describe"
@@ -447,7 +440,20 @@ Edit the esa body_md."
                     (goto-char (point-min))
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
-    (esa-update-body-md number body_md)))
+    (esa-update-body-md number nil nil body_md)))
+(defun esa-update-body-md-wip-command (&optional number body_md)
+  "Called when a esa [Edit] button has been pressed.
+Edit the esa body_md."
+  (interactive "P")
+  (let* ((number (save-excursion
+                   (goto-char (point-min))
+                   (when (re-search-forward "Number: " nil t)
+                     (buffer-substring (point) (progn (forward-word) (point))))))
+         (body_md (save-excursion
+                    (goto-char (point-min))
+                    (when (re-search-forward "^-\r?\n\n" nil t)
+                      (buffer-substring (point) (point-max))))))
+    (esa-update number nil nil body_md t)))
 (defun esa-delete-command (&optional number)
   "Called when a esa [Delete] button has been pressed.
 Confirm and delete the esa."
@@ -467,7 +473,7 @@ Edit the esa name."
          (name (read-from-minibuffer
                 "Name: "
                 (cdr (assq 'name json)))))
-    (esa-update-name (button-get button 'repo) name)))
+    (esa-update (button-get button 'repo) name nil nil)))
 (defun esa-update-category-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa category."
@@ -475,7 +481,7 @@ Edit the esa category."
          (category (read-from-minibuffer
                 "Category: "
                 (cdr (assq 'category json)))))
-    (esa-update-category (button-get button 'repo) category)))
+    (esa-update (button-get button 'repo) nil category nil)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
