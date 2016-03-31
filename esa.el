@@ -30,8 +30,9 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Add function to edit body_md with use of with-current-buffer [1/2]
 ;; - Add toggle function for progress (WIP/Ship)
+;; - Add markdown-mode
+;; - Add pagination function for esa-list
 ;; - Encrypt risky configs
 
 ;;; Code:
@@ -196,10 +197,18 @@ the URL into the kill ring."
 ;; GET /v1/teams/%s/posts
 (defvar esa-list-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "g" 'revert-buffer)
-    (define-key map "p" 'previous-line)
-    (define-key map "n" 'forward-line)
-    (define-key map "q" 'esa-quit-window)
+    (define-key map (kbd "g") 'revert-buffer)
+    (define-key map (kbd "o") 'push-button)
+    (define-key map (kbd "q") 'esa-quit-window)
+    (define-key map (kbd "D") 'esa-delete-command)
+    (define-key map (kbd "k") 'previous-line)
+    (define-key map (kbd "j") 'forward-line)
+    (define-key map (kbd "p") 'beginning-of-buffer)
+    (define-key map (kbd "n") 'end-of-buffer)
+    (define-key map (kbd "SPC") 'scroll-up)
+    (define-key map (kbd "b") 'scroll-up)
+    (define-key map (kbd "S-SPC") 'scroll-down)
+    (define-key map (kbd "u") 'scroll-down)
     map))
 (define-derived-mode esa-list-mode fundamental-mode "Esa"
   "Show your esa list"
@@ -225,8 +234,9 @@ With a prefix argument, kill the buffer instead."
       (erase-buffer)
       (esa-list-mode)
       (esa-insert-list-header))
-    ;; suppress multiple retrieving
-    (setq esa-list--paging-info t))
+    ;; TODO: suppress multiple retrieving
+    ;; (setq esa-list--paging-info t)
+    )
   (esa-request
    "GET"
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
@@ -253,8 +263,6 @@ and displays the list."
           (let ((inhibit-read-only t))
             (goto-char (point-max))
             (mapc 'esa-insert-esa-link json)))
-        ;; skip header
-        (forward-line)
         (set-window-buffer nil (current-buffer)))))
   (url-mark-buffer-as-dead (current-buffer)))
 
@@ -295,9 +303,9 @@ and displays the list."
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
-    (insert "  No   Updated           Prog   Full Name               "
-            (esa-fill-string "" (frame-width))
-            "\n"))
+    (insert "  No   Updated           Prog   Full Name"
+            (esa-fill-string "" (- (frame-width) 2))
+            ".\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
     (overlay-put ov 'face 'header-line))
   (forward-line))
@@ -344,32 +352,55 @@ for the esa."
   (truncate-string-to-width string width nil ?\s "..."))
 
 ;; esa describe (esa)
-(defvar esa-describe-mode-map
+(defvar esa-describe-read-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "g" 'revert-buffer)
-    (define-key map "p" 'previous-line)
-    (define-key map "n" 'forward-line)
-    (define-key map "q" 'esa-quit-window)
+    (define-key map (kbd "q") 'kill-this-buffer)
+    (define-key map (kbd "o") 'kill-this-buffer)
+    (define-key map (kbd "") 'esa-describe-write-mode)
+    (define-key map (kbd "k") 'previous-line)
+    (define-key map (kbd "j") 'forward-line)
+    (define-key map (kbd "p") 'beginning-of-buffer)
+    (define-key map (kbd "n") 'end-of-buffer)
+    (define-key map (kbd "SPC") 'scroll-up)
+    (define-key map (kbd "b") 'scroll-up)
+    (define-key map (kbd "S-SPC") 'scroll-down)
+    (define-key map (kbd "u") 'scroll-down)
     map))
-(define-derived-mode esa-describe-mode fundamental-mode "Esa Describe"
+(define-derived-mode esa-describe-read-mode fundamental-mode "Esa Describe"
   "Show your esa describe"
+  (setq buffer-read-only nil)
+  (erase-buffer)
+  (esa-describe-esa-1 json)
   (setq buffer-read-only t)
-  (setq truncate-lines nil)
-  (use-local-map esa-describe-mode-map))
+  (goto-char (point-min)) (re-search-forward "^-\r?\n\n" nil t)
+  (setq truncate-lines t)
+  (use-local-map esa-describe-read-mode-map))
+(defvar esa-describe-write-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-k") 'kill-this-buffer)
+    (define-key map (kbd "C-c C-c") 'esa-update-body-md-command)
+    map))
+(define-derived-mode esa-describe-write-mode fundamental-mode "Esa Describe"
+  "Show your esa describe"
+  (setq buffer-read-only nil)
+  (esa-describe-read-only-header)
+  (use-local-map esa-describe-write-mode-map))
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-current-buffer (get-buffer-create "*esa*")
-      ;; TODO: recatoring (a)
-      (setq buffer-read-only nil)
-      (erase-buffer)
-      (esa-describe-esa-1 json)
-      (goto-char (point-min))
-      (esa-describe-mode)
+      (esa-describe-read-mode)
       (switch-to-buffer "*esa*"))))
+(defun esa-describe-read-only-header ()
+  (put-text-property (point-min)
+                     (progn
+                       (goto-char (point-min))
+                       (re-search-forward "^-\r?\n\n" nil t)
+                       (- (point) 1))
+                     'read-only t))
 (defun esa-describe-insert-button (text action json)
   (let ((button-text text)
         (button-face (if (display-graphic-p)
-    '(:box (:line-width 2 :color "dark grey")
+                         '(:box (:line-width 2 :color "dark grey")
                                 :background "light grey"
                                 :foreground "black")
                        'link))
@@ -379,64 +410,56 @@ for the esa."
                         'follow-link t
                         'action action
                         'repo number
-                        'esa-json json)
-    (insert " ")))
+                        'esa-json json)))
 (defun esa-describe-esa-1 (esa)
   (require 'lisp-mnt)
-  (let ((number (cdr (assq 'number esa)))
-        (name (cdr (assq 'name esa)))
+  (let ((name (cdr (assq 'name esa)))
         (category (cdr (assq 'category esa)))
-        (progress (eq (cdr (assq 'wip esa)) nil))
+        (progress (eq (cdr (assq 'wip esa)) :json-false))
         (updated (cdr (assq 'updated_at esa)))
         (url (cdr (assq 'url esa)))
+        (number (cdr (assq 'number esa)))
         (body_md (replace-regexp-in-string "" "" (cdr (assq 'body_md esa)))))
-    (insert "    ") (esa-describe-insert-button "Name:" 'esa-update-name-button esa) (insert (or name "") "\n")
-    (insert "") (esa-describe-insert-button "Category:" 'esa-update-category-button esa) (insert (or category "") "\n")
-    (insert "Progress:"
-     (if progress
-         (propertize " Ship" 'font-lock-face `(bold ,font-lock-warning-face))
-       (propertize " WIP" 'font-lock-face '(bold)))
-     "\n")
-    (insert " " (propertize "Updated: " 'font-lock-face 'bold)
-            (format-time-string
-             esa-display-date-format
-             (esa-parse-time-string updated)) "\n")
-    (insert "     " (propertize "URL: " 'font-lock-face 'bold)) (esa-describe-insert-button url 'esa-open-web-button esa) (insert "\n")
-    (insert "-\n\n")
-    (insert (or body_md "") "\n")
-    (insert "\n\n")
-    (esa-describe-insert-button "[Edit]" 'esa-edit-button esa)
-    (esa-describe-insert-button "[Delete]" 'esa-delete-button esa)
-    (goto-char (point-min))))
+    (insert (propertize "  Number: " 'font-lock-face 'bold)) (insert (number-to-string number) "\n")
+    (insert (propertize "    Name: " 'font-lock-face 'bold)) (esa-describe-insert-button (or name "---") 'esa-update-name-button esa) (insert "\n")
+    (insert (propertize "Category: " 'font-lock-face 'bold)) (esa-describe-insert-button (or category "---") 'esa-update-category-button esa) (insert "\n")
+    (insert (propertize "Progress: " 'font-lock-face 'bold))
+    (insert (if progress
+                (propertize "Ship" 'font-lock-face `(bold ,font-lock-warning-face))
+              (propertize "WIP" 'font-lock-face '(bold)))
+            "\n")
+    (insert (propertize " Updated: " 'font-lock-face 'bold))
+    (insert (format-time-string esa-display-date-format (esa-parse-time-string updated)) "\n")
+    (insert (propertize "     URL: " 'font-lock-face 'bold)) (esa-describe-insert-button url 'esa-open-web-button esa) (insert "\n")
+    (insert (propertize "-" 'font-lock-face 'bold) "\n\n")
+    (insert (or body_md ""))))
 
-;; esa edit
-(defvar esa-edit-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "C-c C-k" 'command-kill-this-buffer)
-    map))
-(define-derived-mode esa-edit-mode fundamental-mode "Esa Edit"
-  "Show your esa edit"
-  (setq buffer-read-only nil)
-  (setq truncate-lines t))
-(defun esa-edit-button (button)
+;; commands
+(defun esa-update-body-md-command (&optional number body_md)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa body_md."
-  (let* ((json (button-get button 'esa-json))
-         (body_md (replace-regexp-in-string "" "" (cdr (assq 'body_md json))))
-         (map (make-sparse-keymap)))
-    (with-current-buffer (get-buffer-create "*esa-edit*")
-      (esa-edit-mode)
-      (erase-buffer)
-      (insert (or body_md "") "\n")
-      (goto-char (point-min))
-      (switch-to-buffer "*esa-edit*")
-      ;; TODO:
-      (define-key map (kbd "C-c C-c") '(esa-update-body-md-button button))
-      (define-key map (kbd "C-c C-k") 'command-kill-this-buffer)
-      )
-    map))
+  (interactive "P")
+  (let* ((number (save-excursion
+                   (goto-char (point-min))
+                   (when (re-search-forward "Number: " nil t)
+                     (buffer-substring (point) (progn (forward-word) (point))))))
+         (body_md (save-excursion
+                    (goto-char (point-min))
+                    (when (re-search-forward "^-\r?\n\n" nil t)
+                      (buffer-substring (point) (point-max))))))
+    (esa-update-body-md number body_md)))
+(defun esa-delete-command (&optional number)
+  "Called when a esa [Delete] button has been pressed.
+Confirm and delete the esa."
+  (interactive "P")
+  (when (y-or-n-p "Really delete this esa? ")
+    (let* ((number (save-excursion
+                     (move-beginning-of-line 1)
+                     (forward-char 2)
+                     (buffer-substring (point) (progn (forward-word) (point))))))
+      (esa-delete number))))
 
-;; other buttons
+;; buttons
 (defun esa-update-name-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa name."
@@ -458,14 +481,6 @@ Edit the esa category."
   (let* ((json (button-get button 'esa-json))
          (url (cdr (assq 'url json))))
     (browse-url url)))
-(defun esa-update-body-md-button (button)
-  (let* ((body_md (buffer-substring (point-min) (point-max))))
-    (esa-update-body-md (button-get button 'repo) body_md)))
-(defun esa-delete-button (button)
-  "Called when a esa [Delete] button has been pressed.
-Confirm and delete the esa."
-  (when (y-or-n-p "Really delete this esa post? ")
-    (esa-delete (button-get button 'repo))))
 
 
 ;;; Utilities:
@@ -508,13 +523,11 @@ Confirm and delete the esa."
      (when (re-search-forward "^HTTP/1.1 \\([0-9]+\\)" nil t)
        (let ((code (string-to-number (match-string 1))))
          (if (and (<= 200 code) (< code 300))
-             (progn (switch-to-buffer "*esa*")
-                    (kill-buffer-and-window)
+             (progn (cond ((get-buffer "*esa*") (kill-buffer "*esa*")))
                     (esa-list-revert-buffer)
                     (message "%s succeeded" ,message))
            (message "%s %s"
                     code
-                    ;; ,message
                     (esa--err-propertize "failed")))))
      (url-mark-buffer-as-dead (current-buffer))))
 
