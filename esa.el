@@ -371,7 +371,7 @@ for the esa."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-k") 'kill-this-buffer)
     (define-key map (kbd "C-c C-c") 'esa-update-body-md-wip-command)
-    (define-key map (kbd "C-c C") 'esa-update-body-md-command)
+    (define-key map (kbd "C-c C-p") 'esa-update-body-md-command)
     map))
 (define-derived-mode esa-describe-write-mode fundamental-mode "Esa Describe"
   "Show your esa describe"
@@ -440,7 +440,7 @@ Edit the esa body_md."
                     (goto-char (point-min))
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
-    (esa-update-body-md number nil nil body_md)))
+    (esa-update number nil nil body_md)))
 (defun esa-update-body-md-wip-command (&optional number body_md)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa body_md."
