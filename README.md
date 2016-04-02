@@ -1,4 +1,4 @@
-# esa.el -- Emacs integration for esa.io
+# esa.el --- Emacs integration for esa.io
 ## Installation
 
     $ cd ~/.emacs.d/vendor
@@ -62,3 +62,9 @@ Put following to your .emacs:
 * Home: <https://github.com/nabinno/esa.el>
 * Bugs: <https://github.com/nabinno/esa.el/issues>
 * Hosting: melpa
+## EPILOGUE
+>     A whale!
+>     Down it goes, and more, and more
+>     Up goes its tail!
+>
+>     -Buson Yosa
