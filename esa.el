@@ -30,8 +30,9 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Add markdown-mode
+;; - Add tags for esa-describe
 ;; - Add pagination function for esa-list
+;; - Add esa-tokens-and-team-names defcustom
 ;; - Encrypt risky configs
 
 ;;; Code:
@@ -57,6 +58,10 @@
   "If non-nil, will be used as your Esa team name."
   :group 'esa
   :type 'string)
+(defcustom esa-tokens-and-team-names nil
+  "If non-nil, will be used as your Esa OAuth tokens and team names."
+  :group 'esa
+  :type 'alist)
 (defcustom esa-view-esa nil
   "If non-nil, automatically use `browse-url' to view esas after they're
 posted."
