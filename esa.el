@@ -31,7 +31,6 @@
 
 ;; TODO:
 ;; - Add tags for esa-describe
-;; - Add pagination function for esa-list
 ;; - Add esa-tokens-and-team-names defcustom
 ;; - Encrypt risky configs
 
@@ -95,10 +94,9 @@ Example:
 ;; POST /v1/teams/%s/posts
 ;;;###autoload
 (defun esa-region (begin end &optional wip)
-  "Post the current region as a new paste at yourteam.esa.io
-Copies the URL into the kill ring.
+  "Post the current region as a new esa at yourteam.esa.io.
 .
-With a prefix argument, makes a wip paste."
+With a prefix argument, makes a wip esa."
   (interactive "r\nP")
   (let* ((name (read-from-minibuffer "Name: "))
          (category (read-from-minibuffer "Category: ")))
@@ -112,34 +110,6 @@ With a prefix argument, makes a wip paste."
          ("category" . ,category)
          ("wip" . ,(if wip 't :json-false))
          ))))))
-(defun esa-single-file-name ()
-  (let* ((file (or (buffer-file-name) (buffer-name)))
-         (name (file-name-nondirectory file)))
-    name))
-(defun esa-anonymous-file-name ()
-  (let* ((file (or (buffer-file-name) (buffer-name)))
-         (name (file-name-nondirectory file))
-         (ext (file-name-extension name)))
-    (concat "anonymous-esa." ext)))
-(defun esa-make-query-string (params)
-  "Returns a query string constructed from PARAMS, which should be
-a list with elements of the form (KEY . VALUE). KEY and VALUE
-should both be strings."
-  (let ((hexify
-         (lambda (x)
-           (url-hexify-string
-            (with-output-to-string (princ x))))))
-    (mapconcat
-     (lambda (param)
-       (concat (funcall hexify (car param))
-               "="
-               (funcall hexify (cdr param))))
-     params "&")))
-(defun esa-command-to-string (&rest args)
-  (with-output-to-string
-    (with-current-buffer standard-output
-      (unless (= (apply 'call-process "git" nil t nil args) 0)
-        (error "git command fails %s" (buffer-string))))))
 ;;;###autoload
 (defun esa-region-wip (begin end)
   "Post the current region as a new wip paste at yourteam.esa.io
@@ -180,6 +150,11 @@ the URL into the kill ring."
   (if (esa-region-active-p)
       (esa-region (region-beginning) (region-end) t)
     (esa-buffer t)))
+(defun esa-region-active-p ()
+  (if (functionp 'region-active-p)
+      ;; trick for suppressing elint warning
+      (funcall 'region-active-p)
+    (and transient-mark-mode mark-active)))
 (defun esa-created-callback (status url json)
   (let ((json (save-excursion
                 (goto-char (point-min))
@@ -203,7 +178,9 @@ the URL into the kill ring."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "g") 'revert-buffer)
     (define-key map (kbd "o") 'push-button)
-    (define-key map (kbd "q") 'esa-quit-window)
+    (define-key map (kbd "/") 'esa-search)
+    (define-key map (kbd "f") 'esa-search)
+    (define-key map (kbd "q") 'esa-list-quit-window)
     (define-key map (kbd "D") 'esa-delete-command)
     (define-key map (kbd "k") 'previous-line)
     (define-key map (kbd "j") 'forward-line)
@@ -222,25 +199,24 @@ the URL into the kill ring."
        'esa-list-revert-buffer)
   (use-local-map esa-list-mode-map))
 ;;;###autoload
+(defun esa-search ()
+  "Displays a list of search esa results in a new buffer."
+  (interactive)
+  (let* ((query (read-from-minibuffer "Query: ")))
+    (message "Retrieving list of your esas...")
+    (esa-list-draw-esas query)))
+;;;###autoload
 (defun esa-list ()
   "Displays a list of all of the current user's esas in a new buffer."
   (interactive)
   (message "Retrieving list of your esas...")
   (esa-list-draw-esas))
-(defun esa-quit-window (&optional kill-buffer)
-  "Bury the *esas* buffer and delete its window.
-With a prefix argument, kill the buffer instead."
-  (interactive "P")
-  (quit-window kill-buffer))
 (defun esa-list-draw-esas (&optional q)
   (with-current-buffer (get-buffer-create "*esas*")
     (let ((inhibit-read-only t))
       (erase-buffer)
       (esa-list-mode)
-      (esa-insert-list-header))
-    ;; TODO: suppress multiple retrieving
-    ;; (setq esa-list--paging-info t)
-    )
+      (esa-insert-list-header)))
   (esa-request
    "GET"
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
@@ -249,11 +225,11 @@ With a prefix argument, kill the buffer instead."
 (defun esa-list-revert-buffer (&rest ignore)
   ;; redraw esa list
   (esa-list))
-(defun esa-region-active-p ()
-  (if (functionp 'region-active-p)
-      ;; trick for suppressing elint warning
-      (funcall 'region-active-p)
-    (and transient-mark-mode mark-active)))
+(defun esa-list-quit-window (&optional kill-buffer)
+  "Bury the *esas* buffer and delete its window.
+With a prefix argument, kill the buffer instead."
+  (interactive "P")
+  (quit-window kill-buffer))
 (defun esa-lists-retrieved-callback (status url params)
   "Called when the list of esas has been retrieved. Parses the result
 and displays the list."
@@ -525,6 +501,20 @@ Edit the esa category."
    (t
     (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
     (error "You need to get OAuth Access Token by your browser"))))
+(defun esa-make-query-string (params)
+  "Returns a query string constructed from PARAMS, which should be
+a list with elements of the form (KEY . VALUE). KEY and VALUE
+should both be strings."
+  (let ((hexify
+         (lambda (x)
+           (url-hexify-string
+            (with-output-to-string (princ x))))))
+    (mapconcat
+     (lambda (param)
+       (concat (funcall hexify (car param))
+               "="
+               (funcall hexify (cdr param))))
+     params "&")))
 
 ;; callback
 (defun esa-simple-receiver (message)
