@@ -30,7 +30,6 @@
 ;;; Commentary:
 
 ;; TODO:
-;; - Add tags for esa-describe
 ;; - Add esa-tokens-and-team-names defcustom
 ;; - Encrypt risky configs
 
@@ -96,10 +95,11 @@ Example:
 (defun esa-region (begin end &optional wip)
   "Post the current region as a new esa at yourteam.esa.io.
 .
-With a prefix argument, makes a wip esa."
+With a prefix argument, makes a esa on WIP."
   (interactive "r\nP")
   (let* ((name (read-from-minibuffer "Name: "))
-         (category (read-from-minibuffer "Category: ")))
+         (category (read-from-minibuffer "Category: "))
+         (tags (read-from-minibuffer "Tags: ")))
     (esa-request
      "POST"
      (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
@@ -108,8 +108,8 @@ With a prefix argument, makes a wip esa."
         (("name" . ,name)
          ("body_md" . ,(buffer-substring begin end))
          ("category" . ,category)
-         ("wip" . ,(if wip 't :json-false))
-         ))))))
+         ("tags" . ,(vconcat (split-string tags)))
+         ("wip" . ,(if wip 't :json-false))))))))
 ;;;###autoload
 (defun esa-region-wip (begin end)
   "Post the current region as a new wip paste at yourteam.esa.io
@@ -254,20 +254,21 @@ and displays the list."
    (esa-simple-receiver "Delete")))
 
 ;; PATCH /v1/teams/%s/posts/%s
-(defun esa-update (number name category body_md &optional wip)
+(defun esa-update (number name category tags body_md &optional wip)
   (esa-request
    "PATCH"
    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
-   (esa-simple-receiver "Update body.md")
+   (esa-simple-receiver "Update esa")
    `(,@(cond
         (name
          `(("name" . ,name)))
         (category
          `(("category" . ,category)))
+        (tags
+         `(("tags" . ,(vconcat (split-string tags)))))
         (body_md
          `(("body_md" . ,body_md)
-           ("wip" . ,(if wip 't :json-false))))
-        ))))
+           ("wip" . ,(if wip 't :json-false))))))))
 
 
 ;;; Components:
@@ -389,6 +390,12 @@ for the esa."
   (require 'lisp-mnt)
   (let ((name (cdr (assq 'name esa)))
         (category (cdr (assq 'category esa)))
+        (tags
+         (mapconcat 'identity
+                    (delete "" (split-string
+                                (format "%s" (cdr (assq 'tags esa)))
+                                "[\]\[,\(\) ]"))
+                    " "))
         (progress (eq (cdr (assq 'wip esa)) :json-false))
         (updated (cdr (assq 'updated_at esa)))
         (url (cdr (assq 'url esa)))
@@ -397,6 +404,7 @@ for the esa."
     (insert (propertize "  Number: " 'font-lock-face 'bold)) (insert (number-to-string number) "\n")
     (insert (propertize "    Name: " 'font-lock-face 'bold)) (esa-describe-insert-button (or name "---") 'esa-update-name-button esa) (insert "\n")
     (insert (propertize "Category: " 'font-lock-face 'bold)) (esa-describe-insert-button (or category "---") 'esa-update-category-button esa) (insert "\n")
+    (insert (propertize "    Tags: " 'font-lock-face 'bold)) (esa-describe-insert-button (if (string= tags "") "---" tags) 'esa-update-tags-button esa) (insert "\n")
     (insert (propertize "Progress: " 'font-lock-face 'bold))
     (insert (if progress
                 (propertize "Ship" 'font-lock-face `(bold ,font-lock-warning-face))
@@ -421,7 +429,7 @@ Edit the esa body_md."
                     (goto-char (point-min))
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
-    (esa-update number nil nil body_md)))
+    (esa-update number nil nil nil body_md)))
 (defun esa-update-body-md-wip-command (&optional number body_md)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa body_md."
@@ -434,7 +442,7 @@ Edit the esa body_md."
                     (goto-char (point-min))
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
-    (esa-update number nil nil body_md t)))
+    (esa-update number nil nil nil body_md t)))
 (defun esa-delete-command (&optional number)
   "Called when a esa [Delete] button has been pressed.
 Confirm and delete the esa."
@@ -454,7 +462,7 @@ Edit the esa name."
          (name (read-from-minibuffer
                 "Name: "
                 (cdr (assq 'name json)))))
-    (esa-update (button-get button 'repo) name nil nil)))
+    (esa-update (button-get button 'repo) name nil nil nil)))
 (defun esa-update-category-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa category."
@@ -462,7 +470,19 @@ Edit the esa category."
          (category (read-from-minibuffer
                 "Category: "
                 (cdr (assq 'category json)))))
-    (esa-update (button-get button 'repo) nil category nil)))
+    (esa-update (button-get button 'repo) nil category nil nil)))
+(defun esa-update-tags-button (button)
+  "Called when a esa [Edit] button has been pressed.
+Edit the esa tags."
+  (let* ((json (button-get button 'esa-json))
+         (tags (read-from-minibuffer
+                "Tgas: "
+                (mapconcat 'identity
+                    (delete "" (split-string
+                                (format "%s" (cdr (assq 'tags json)))
+                                "[\]\[,\(\) ]"))
+                    " "))))
+    (esa-update (button-get button 'repo) nil nil tags nil)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
