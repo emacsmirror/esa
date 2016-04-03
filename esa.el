@@ -164,11 +164,11 @@ the URL into the kill ring."
     (cond
      ((json-alist-p json)
       (setq http-url (cdr (assq 'url json)))
-      (message "Paste created: %s" http-url)
+      (message "Paste created: %s" http-url " (\\( ⁰⊖⁰)/)")
       (when esa-view-esa
         (browse-url http-url)))
      (t
-      (message (esa--err-propertize "failed"))))
+      (message (esa--err-propertize "failed (\\( ⁰⊖⁰)/)"))))
     (when http-url
       (kill-new http-url))
     (url-mark-buffer-as-dead (current-buffer))))
@@ -250,6 +250,7 @@ and displays the list."
             (goto-char (point-max))
             (mapc 'esa-insert-esa-link json)))
         (set-window-buffer nil (current-buffer)))))
+  (message "List succeeded (\\( ⁰⊖⁰)/)")
   (url-mark-buffer-as-dead (current-buffer)))
 
 ;; DELETE /v1/teams/%s/posts/%s
@@ -347,7 +348,7 @@ for the esa."
     (define-key map (kbd "u") 'scroll-down)
     map))
 (define-derived-mode esa-describe-read-mode fundamental-mode "Esa Describe"
-  "Show your esa describe"
+  "Show your esa describe."
   (setq buffer-read-only nil)
   (erase-buffer)
   (esa-describe-esa-1 json)
@@ -362,10 +363,11 @@ for the esa."
     (define-key map (kbd "C-c C-p") 'esa-update-body-md-command)
     map))
 (define-derived-mode esa-describe-write-mode fundamental-mode "Esa Describe"
-  "Show your esa describe"
+  "Edit your esa describe body."
   (setq buffer-read-only nil)
   (esa-describe-read-only-header)
-  (use-local-map esa-describe-write-mode-map))
+  (use-local-map esa-describe-write-mode-map)
+  (message "Type C-c C-c to wip post, C-c C-p to post, or C-c C-k to cancel (\\( ⁰⊖⁰)/)"))
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-current-buffer (get-buffer-create "*esa*")
@@ -558,10 +560,10 @@ should both be strings."
          (if (and (<= 200 code) (< code 300))
              (progn (cond ((get-buffer "*esa*") (kill-buffer "*esa*")))
                     (esa-list-revert-buffer)
-                    (message "%s succeeded" ,message))
+                    (message "%s succeeded (\\( ⁰⊖⁰)/)" ,message))
            (message "%s %s"
                     code
-                    (esa--err-propertize "failed")))))
+                    (esa--err-propertize "failed (\\( ⁰⊖⁰)/)")))))
      (url-mark-buffer-as-dead (current-buffer))))
 
 ;; exception handling
