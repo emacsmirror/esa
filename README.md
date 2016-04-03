@@ -1,88 +1,64 @@
-yagist.el -- Yet Another Emacs integration for gist.github.com
-==============================================================
-
-Install
-=======
+# esa.el --- Emacs integration for esa.io (\\( ⁰⊖⁰)/)
+## Installation
 
     $ cd ~/.emacs.d/vendor
-    $ git clone git://github.com/mhayashi1120/yagist.el.git
+    $ git clone git://github.com/nabinno/esa.el.git
 
 In your emacs config:
 
 ```lisp
-(add-to-list 'load-path "~/.emacs.d/vendor/yagist.el")
-(require 'yagist)
+(add-to-list 'load-path "~/.emacs.d/vendor/esa.el")
+(require 'esa)
 ```
 
-If you want to save encrypted token to ~/.gitconfig install elisp from following url.
-And set a variable:
+## Functions
 
-https://github.com/mhayashi1120/Emacs-kaesar/raw/master/kaesar.el
+- `M-x esa-list` - Lists your esas in a new buffer. Use arrow keys to
+  browse, RET to open one in the other buffer.
+- `M-x esa-search` - Search queries and lists your esas in a new buffer.
+- `M-x esa-region` - Copies esa URL into the kill ring.  With a prefix
+  argument, ships a esa.
+- `M-x esa-region-wip` - Explicitly create a esa on WIP.
+- `M-x esa-buffer` - Copies esa URL into the kill ring.  With a
+  prefix argument, ships a esa.
+- `M-x esa-buffer-private` - Explicitly create a esa on WIP.
+- `M-x esa-region-or-buffer` - Post either the current region, or if
+  mark is not set, the current buffer as a new paste at
+  yourteam.esa.io.  Copies the URL into the kill ring.  With a prefix
+  argument, ships a esa.
+- `M-x esa-region-or-buffer-wip` - Explicitly create a esa from the
+  region or buffer.
 
-```lisp
-(setq yagist-encrypt-risky-config t)
-```
-
-Functions
-=========
-
-    M-x yagist-list - Lists your gists in a new buffer. Use arrow keys
-    to browse, RET to open one in the other buffer.
-
-    M-x yagist-region - Copies Gist URL into the kill ring.
-    With a prefix argument, makes a private gist.
-
-    M-x yagist-region-private - Explicitly create a private gist.
-
-    M-x yagist-buffer - Copies Gist URL into the kill ring.
-    With a prefix argument, makes a private gist.
-
-    M-x yagist-buffer-private - Explicitly create a private gist.
-
-    M-x yagist-region-or-buffer - Post either the current region, or if mark
-    is not set, the current buffer as a new paste at gist.github.com .
-    Copies the URL into the kill ring.
-    With a prefix argument, makes a private paste.
-
-    M-x yagist-region-or-buffer-private - Explicitly create a gist from the
-    region or buffer.
-
-    M-x yagist-minor-mode - Automated POST current buffer contents to gist
-	after saving.
-
-    M-x yagist-global-minor-mode - Open the file that under gist repository
-    automatically activate `yagist-minor-mode'.
-
-Config
-======
-
-Set `yagist-view-gist` to non-nil if you want to view your Gist using
- `browse-url` after it is created.
-
+## Configuration
 ### OAuth authentication
 
 Get the `Personal API Access Token` from:
 
-https://github.com/settings/applications
+https://yourteam.esa.io/user/token
 
-Save the token to your ~/.gitconfig :
-
-    $ git config --global github.oauth-token ***************************
-
-Or put following to your .emacs:
+Put following to your .emacs:
 
 ```lisp
-(setq yagist-github-token "******************************")
+(setq esa-token "******************************")
+(setq esa-team-name "yourteam")
 ```
 
 ### Other customizations
 
-     M-x customize-group (yagist)
+    M-x customize-group (esa)
 
-Meta
-====
+---
 
-* Code: `git clone git://github.com/mhayashi1120/yagist.el.git`
-* Home: <https://github.com/mhayashi1120/yagist.el>
-* Bugs: <https://github.com/mhayashi1120/yagist.el/issues>
-* Hosting: melpa
+## Meta
+
+* Code: `git clone git://github.com/nabinno/esa.el.git`
+* Home: <https://github.com/nabinno/esa.el>
+* Bugs: <https://github.com/nabinno/esa.el/issues>
+
+## EPILOGUE
+
+>     A whale!
+>     Down it goes, and more, and more
+>     Up goes its tail!
+>
+>     -Buson Yosa
