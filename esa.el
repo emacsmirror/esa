@@ -184,7 +184,7 @@ the URL into the kill ring."
     (define-key map (kbd "D") 'esa-delete-command)
     (define-key map (kbd "k") 'previous-line)
     (define-key map (kbd "j") 'forward-line)
-    (define-key map (kbd "p") 'beginning-of-buffer)
+    (define-key map (kbd "p") 'esa-list-beginning-of-buffer)
     (define-key map (kbd "n") 'end-of-buffer)
     (define-key map (kbd "SPC") 'scroll-up)
     (define-key map (kbd "b") 'scroll-up)
@@ -230,6 +230,12 @@ the URL into the kill ring."
 With a prefix argument, kill the buffer instead."
   (interactive "P")
   (quit-window kill-buffer))
+(defun esa-list-beginning-of-buffer ()
+  "Move beginning of the *esas* buffer."
+  (interactive)
+  (progn
+    (goto-char (point-min))
+    (forward-line 1)))
 (defun esa-lists-retrieved-callback (status url params)
   "Called when the list of esas has been retrieved. Parses the result
 and displays the list."
@@ -333,7 +339,7 @@ for the esa."
     (define-key map (kbd "") 'esa-describe-write-mode)
     (define-key map (kbd "k") 'previous-line)
     (define-key map (kbd "j") 'forward-line)
-    (define-key map (kbd "p") 'beginning-of-buffer)
+    (define-key map (kbd "p") 'esa-describe-beginning-of-buffer)
     (define-key map (kbd "n") 'end-of-buffer)
     (define-key map (kbd "SPC") 'scroll-up)
     (define-key map (kbd "b") 'scroll-up)
@@ -386,6 +392,12 @@ for the esa."
                         'action action
                         'repo number
                         'esa-json json)))
+(defun esa-describe-beginning-of-buffer ()
+  "Move beginning of the *esas* buffer."
+  (interactive)
+  (progn
+    (goto-char (point-min))
+    (re-search-forward "^-\r?\n\n" nil t)))
 (defun esa-describe-esa-1 (esa)
   (require 'lisp-mnt)
   (let ((name (cdr (assq 'name esa)))
