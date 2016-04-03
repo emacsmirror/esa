@@ -164,7 +164,7 @@ the URL into the kill ring."
     (cond
      ((json-alist-p json)
       (setq http-url (cdr (assq 'url json)))
-      (message "Paste created: %s" http-url " (\\( ⁰⊖⁰)/)")
+      (message "Paste created: %s (\\( ⁰⊖⁰)/)" http-url)
       (when esa-view-esa
         (browse-url http-url)))
      (t
@@ -267,15 +267,17 @@ and displays the list."
    (format "https://api.esa.io/v1/teams/%s/posts/%s" esa-team-name number)
    (esa-simple-receiver "Update esa")
    `(,@(cond
-        (name
-         `(("name" . ,name)))
-        (category
-         `(("category" . ,category)))
-        (tags
-         `(("tags" . ,(vconcat (split-string tags)))))
         (body_md
          `(("body_md" . ,body_md)
-           ("wip" . ,(if wip 't :json-false))))))))
+           ("wip" . ,(if wip 't :json-false))))
+        (tags
+         `(("post" .
+            (("name" . ,name)
+             ("tags" . ,(vconcat (split-string tags)))))))
+        (category
+         `(("category" . ,category)))
+        (name
+         `(("name" . ,name)))))))
 
 
 ;;; Components:
@@ -489,6 +491,7 @@ Edit the esa category."
   "Called when a esa [Edit] button has been pressed.
 Edit the esa tags."
   (let* ((json (button-get button 'esa-json))
+         (name (cdr (assq 'name json)))
          (tags (read-from-minibuffer
                 "Tgas: "
                 (mapconcat 'identity
@@ -496,7 +499,7 @@ Edit the esa tags."
                                 (format "%s" (cdr (assq 'tags json)))
                                 "[\]\[,\(\) ]"))
                     " "))))
-    (esa-update (button-get button 'repo) nil nil tags nil)))
+    (esa-update (button-get button 'repo) name nil tags nil)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
