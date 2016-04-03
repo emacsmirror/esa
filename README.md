@@ -1,4 +1,4 @@
-# esa.el --- Emacs integration for esa.io
+# esa.el --- Emacs integration for esa.io (\\( ⁰⊖⁰)/)
 ## Installation
 
     $ cd ~/.emacs.d/vendor
