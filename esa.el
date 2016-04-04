@@ -1,4 +1,4 @@
-;;; esa.el --- Emacs integration for esa.io
+;;; esa.el --- Interface to esa.io
 
 ;; Original Author: Masahiro Hayashi <mhayashi1120@gmail.com>
 ;; Original Created: 21 Jul 2008
@@ -7,7 +7,7 @@
 ;; Created: 21 May 2016
 ;; Version: 0.8.13
 ;; Keywords: tools esa
-;; Package-Requires: ((cl-lib "0.3"))
+;; Package-Requires: ((cl-lib "0.5"))
 ;; URL: https://github.com/nabinno/esa.el
 
 ;; This file is NOT part of GNU Emacs.
@@ -42,43 +42,50 @@
 (require 'easy-mmode)
 
 
-;;; Configurations:
+;;; Configuration:
 
 (defgroup esa nil
   "Simple esa application."
   :prefix "esa-"
   :group 'applications)
+
 (defcustom esa-token nil
   "If non-nil, will be used as your Esa OAuth token."
   :group 'esa
   :type 'string)
+
 (defcustom esa-team-name nil
   "If non-nil, will be used as your Esa team name."
   :group 'esa
   :type 'string)
+
 (defcustom esa-tokens-and-team-names nil
   "If non-nil, will be used as your Esa OAuth tokens and team names."
   :group 'esa
   :type 'alist)
+
 (defcustom esa-view-esa nil
-  "If non-nil, automatically use `browse-url' to view esas after they're
-posted."
+  "If non-nil, use `browse-url' to view esas after they're posted."
   :type 'boolean
   :group 'esa)
+
 (defcustom esa-display-date-format "%Y-%m-%d %H:%M"
   "Date format displaying in `esa-list' buffer."
   :type 'string
   :group 'esa)
+
 (defvar esa-authenticate-function nil
   "Authentication function symbol.")
 (make-obsolete-variable 'esa-authenticate-function nil "0.8.13")
+
 (defcustom esa-working-directory "~/.esa"
   "*Working directory where to go esa repository is."
   :type 'directory
   :group 'esa)
+
 (defcustom esa-working-directory-alist nil
   "*Alist of esa numer as key, value is directory path.
-.
+
 Example:
 \(setq esa-working-directory-alist
       `((\"1080701\" . \"~/myesa/Emacs-nativechecker\")))
@@ -87,14 +94,14 @@ Example:
                 :value-type directory)
   :group 'esa)
 
-
+
 ;;; Stores:
 
 ;; POST /v1/teams/%s/posts
 ;;;###autoload
 (defun esa-region (begin end &optional wip)
   "Post the current region as a new esa at yourteam.esa.io.
-.
+
 With a prefix argument, makes a esa on WIP."
   (interactive "r\nP")
   (let* ((name (read-from-minibuffer "Name: "))
@@ -110,37 +117,42 @@ With a prefix argument, makes a esa on WIP."
          ("category" . ,category)
          ("tags" . ,(vconcat (split-string tags)))
          ("wip" . ,(if wip 't :json-false))))))))
+
 ;;;###autoload
 (defun esa-region-wip (begin end)
-  "Post the current region as a new wip paste at yourteam.esa.io
+  "Post the current region as a new wip paste at yourteam.esa.io.
 Copies the URL into the kill ring."
   (interactive "r")
   (esa-region begin end t))
+
 ;;;###autoload
 (defun esa-buffer (&optional wip)
   "Post the current buffer as a new paste at yourteam.esa.io.
 Copies the URL into the kill ring.
-.
+
 With a prefix argument, makes a wip paste."
   (interactive "P")
   (esa-region (point-min) (point-max) wip))
+
 ;;;###autoload
 (defun esa-buffer-wip ()
   "Post the current buffer as a new wip paste at yourteam.esa.io.
 Copies the URL into the kill ring."
   (interactive)
   (esa-region (point-min) (point-max) t))
+
 ;;;###autoload
 (defun esa-region-or-buffer (&optional wip)
   "Post either the current region, or if mark is not set, the
-current buffer as a new paste at yourteam.esa.io Copies the URL
-into the kill ring.
-.
+current buffer as a new paste at yourteam.esa.io.
+Copies the URL into the kill ring.
+
 With a prefix argument, makes a wip paste."
   (interactive "P")
   (if (esa-region-active-p)
       (esa-region (region-beginning) (region-end) wip)
     (esa-buffer wip)))
+
 ;;;###autoload
 (defun esa-region-or-buffer-wip ()
   "Post either the current region, or if mark is not set, the
@@ -150,11 +162,13 @@ the URL into the kill ring."
   (if (esa-region-active-p)
       (esa-region (region-beginning) (region-end) t)
     (esa-buffer t)))
+
 (defun esa-region-active-p ()
   (if (functionp 'region-active-p)
       ;; trick for suppressing elint warning
       (funcall 'region-active-p)
     (and transient-mark-mode mark-active)))
+
 (defun esa-created-callback (status url json)
   (let ((json (save-excursion
                 (goto-char (point-min))
@@ -191,6 +205,7 @@ the URL into the kill ring."
     (define-key map (kbd "S-SPC") 'scroll-down)
     (define-key map (kbd "u") 'scroll-down)
     map))
+
 (define-derived-mode esa-list-mode fundamental-mode "Esa"
   "Show your esa list"
   (setq buffer-read-only t)
@@ -198,6 +213,7 @@ the URL into the kill ring."
   (set (make-local-variable 'revert-buffer-function)
        'esa-list-revert-buffer)
   (use-local-map esa-list-mode-map))
+
 ;;;###autoload
 (defun esa-search ()
   "Displays a list of search esa results in a new buffer."
@@ -205,12 +221,14 @@ the URL into the kill ring."
   (let* ((query (read-from-minibuffer "Query: ")))
     (message "Retrieving list of your esas...")
     (esa-list-draw-esas query)))
+
 ;;;###autoload
 (defun esa-list ()
   "Displays a list of all of the current user's esas in a new buffer."
   (interactive)
   (message "Retrieving list of your esas...")
   (esa-list-draw-esas))
+
 (defun esa-list-draw-esas (&optional q)
   (with-current-buffer (get-buffer-create "*esas*")
     (let ((inhibit-read-only t))
@@ -222,23 +240,27 @@ the URL into the kill ring."
    (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
    'esa-lists-retrieved-callback
    (if q `(("q" . ,q)))))
+
 (defun esa-list-revert-buffer (&rest ignore)
   ;; redraw esa list
   (esa-list))
+
 (defun esa-list-quit-window (&optional kill-buffer)
   "Bury the *esas* buffer and delete its window.
 With a prefix argument, kill the buffer instead."
   (interactive "P")
   (quit-window kill-buffer))
+
 (defun esa-list-beginning-of-buffer ()
   "Move beginning of the *esas* buffer."
   (interactive)
   (progn
     (goto-char (point-min))
     (forward-line 1)))
+
 (defun esa-lists-retrieved-callback (status url params)
-  "Called when the list of esas has been retrieved. Parses the result
-and displays the list."
+  "Called when the list of esas has been retrieved.
+Parses the result and displays the list."
   (goto-char (point-min))
   (when (re-search-forward "^\r?$" nil t)
     (let* ((json (append
@@ -292,6 +314,7 @@ and displays the list."
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
     (overlay-put ov 'face 'header-line))
   (forward-line))
+
 (defun esa-insert-esa-link (esa)
   "Inserts a button that will open the given esa when pressed."
   (let* ((data (esa-parse-esa esa))
@@ -304,6 +327,7 @@ and displays the list."
                       'face 'default
                       'esa-json esa))
   (insert "\n"))
+
 (defun esa-parse-esa (esa)
   "Returns a list of the esa's attributes for display, given the xml list
 for the esa."
@@ -321,6 +345,7 @@ for the esa."
            16)
           (esa-fill-string progress 5)
           (or full_name ""))))
+
 (defun esa-parse-time-string (string)
   (let* ((times (split-string string "[-T:Z]" t))
          (getter (lambda (x) (string-to-number (nth x times))))
@@ -331,6 +356,7 @@ for the esa."
          (min (funcall getter 4))
          (sec (funcall getter 5)))
     (encode-time sec min hour day month year 0)))
+
 (defun esa-fill-string (string width)
   (truncate-string-to-width string width nil ?\s "..."))
 
@@ -339,7 +365,8 @@ for the esa."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "q") 'kill-this-buffer)
     (define-key map (kbd "o") 'kill-this-buffer)
-    (define-key map (kbd "") 'esa-describe-write-mode)
+    (define-key map (kbd "
+") 'esa-describe-write-mode)
     (define-key map (kbd "k") 'previous-line)
     (define-key map (kbd "j") 'forward-line)
     (define-key map (kbd "p") 'esa-describe-beginning-of-buffer)
@@ -349,6 +376,7 @@ for the esa."
     (define-key map (kbd "S-SPC") 'scroll-down)
     (define-key map (kbd "u") 'scroll-down)
     map))
+
 (define-derived-mode esa-describe-read-mode fundamental-mode "Esa Describe"
   "Show your esa describe."
   (setq buffer-read-only nil)
@@ -358,23 +386,27 @@ for the esa."
   (goto-char (point-min)) (re-search-forward "^-\r?\n\n" nil t)
   (setq truncate-lines t)
   (use-local-map esa-describe-read-mode-map))
+
 (defvar esa-describe-write-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-k") 'kill-this-buffer)
     (define-key map (kbd "C-c C-c") 'esa-update-body-md-wip-command)
     (define-key map (kbd "C-c C-p") 'esa-update-body-md-command)
     map))
+
 (define-derived-mode esa-describe-write-mode fundamental-mode "Esa Describe"
   "Edit your esa describe body."
   (setq buffer-read-only nil)
   (esa-describe-read-only-header)
   (use-local-map esa-describe-write-mode-map)
   (message "Type C-c C-c to wip post, C-c C-p to post, or C-c C-k to cancel (\\( ⁰⊖⁰)/)"))
+
 (defun esa-describe-button (button)
   (let ((json (button-get button 'esa-json)))
     (with-current-buffer (get-buffer-create "*esa*")
       (esa-describe-read-mode)
       (switch-to-buffer "*esa*"))))
+
 (defun esa-describe-read-only-header ()
   (put-text-property (point-min)
                      (progn
@@ -382,6 +414,7 @@ for the esa."
                        (re-search-forward "^-\r?\n\n" nil t)
                        (- (point) 1))
                      'read-only t))
+
 (defun esa-describe-insert-button (text action json)
   (let ((button-text text)
         (button-face (if (display-graphic-p)
@@ -396,14 +429,15 @@ for the esa."
                         'action action
                         'repo number
                         'esa-json json)))
+
 (defun esa-describe-beginning-of-buffer ()
   "Move beginning of the *esas* buffer."
   (interactive)
   (progn
     (goto-char (point-min))
     (re-search-forward "^-\r?\n\n" nil t)))
+
 (defun esa-describe-esa-1 (esa)
-  (require 'lisp-mnt)
   (let ((name (cdr (assq 'name esa)))
         (category (cdr (assq 'category esa)))
         (tags
@@ -416,7 +450,8 @@ for the esa."
         (updated (cdr (assq 'updated_at esa)))
         (url (cdr (assq 'url esa)))
         (number (cdr (assq 'number esa)))
-        (body_md (replace-regexp-in-string "" "" (cdr (assq 'body_md esa)))))
+        (body_md (replace-regexp-in-string "
+" "" (cdr (assq 'body_md esa)))))
     (insert (propertize "  Number: " 'font-lock-face 'bold)) (insert (number-to-string number) "\n")
     (insert (propertize "    Name: " 'font-lock-face 'bold)) (esa-describe-insert-button (or name "---") 'esa-update-name-button esa) (insert "\n")
     (insert (propertize "Category: " 'font-lock-face 'bold)) (esa-describe-insert-button (or category "---") 'esa-update-category-button esa) (insert "\n")
@@ -446,6 +481,7 @@ Edit the esa body_md."
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
     (esa-update number nil nil nil body_md)))
+
 (defun esa-update-body-md-wip-command (&optional number body_md)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa body_md."
@@ -459,6 +495,7 @@ Edit the esa body_md."
                     (when (re-search-forward "^-\r?\n\n" nil t)
                       (buffer-substring (point) (point-max))))))
     (esa-update number nil nil nil body_md t)))
+
 (defun esa-delete-command (&optional number)
   "Called when a esa [Delete] button has been pressed.
 Confirm and delete the esa."
@@ -479,14 +516,16 @@ Edit the esa name."
                 "Name: "
                 (cdr (assq 'name json)))))
     (esa-update (button-get button 'repo) name nil nil nil)))
+
 (defun esa-update-category-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa category."
   (let* ((json (button-get button 'esa-json))
          (category (read-from-minibuffer
-                "Category: "
-                (cdr (assq 'category json)))))
+                    "Category: "
+                    (cdr (assq 'category json)))))
     (esa-update (button-get button 'repo) nil category nil nil)))
+
 (defun esa-update-tags-button (button)
   "Called when a esa [Edit] button has been pressed.
 Edit the esa tags."
@@ -495,10 +534,10 @@ Edit the esa tags."
          (tags (read-from-minibuffer
                 "Tgas: "
                 (mapconcat 'identity
-                    (delete "" (split-string
-                                (format "%s" (cdr (assq 'tags json)))
-                                "[\]\[,\(\) ]"))
-                    " "))))
+                           (delete "" (split-string
+                                       (format "%s" (cdr (assq 'tags json)))
+                                       "[\]\[,\(\) ]"))
+                           " "))))
     (esa-update (button-get button 'repo) name nil tags nil)))
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
@@ -514,6 +553,7 @@ Edit the esa tags."
   (let* ((str (buffer-substring start end))
          (decoded (decode-coding-string str 'utf-8)))
     (json-read-from-string decoded)))
+
 (defun esa-request-0 (auth method url callback &optional json-or-params)
   (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
          (params (and (member method '("GET" "DELETE")) json-or-params))
@@ -527,17 +567,20 @@ Edit the esa tags."
                   (concat url "?" (esa-make-query-string params))
                 url)))
     (url-retrieve url callback (list url json-or-params))))
+
 (defun esa-request (method url callback &optional json-or-params)
   (let ((token (esa-check-oauth-token)))
     (esa-request-0
      (format "Bearer %s" token)
      method url callback json-or-params)))
+
 (defun esa-check-oauth-token ()
   (cond
    (esa-token)
    (t
     (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
     (error "You need to get OAuth Access Token by your browser"))))
+
 (defun esa-make-query-string (params)
   "Returns a query string constructed from PARAMS, which should be
 a list with elements of the form (KEY . VALUE). KEY and VALUE
