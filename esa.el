@@ -365,8 +365,7 @@ for the esa."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "q") 'kill-this-buffer)
     (define-key map (kbd "o") 'kill-this-buffer)
-    (define-key map (kbd "
-") 'esa-describe-write-mode)
+    (define-key map (kbd "RET") 'esa-describe-write-mode)
     (define-key map (kbd "k") 'previous-line)
     (define-key map (kbd "j") 'forward-line)
     (define-key map (kbd "p") 'esa-describe-beginning-of-buffer)
@@ -450,8 +449,7 @@ for the esa."
         (updated (cdr (assq 'updated_at esa)))
         (url (cdr (assq 'url esa)))
         (number (cdr (assq 'number esa)))
-        (body_md (replace-regexp-in-string "
-" "" (cdr (assq 'body_md esa)))))
+        (body_md (replace-regexp-in-string "\r\n" "\n" (cdr (assq 'body_md esa)))))
     (insert (propertize "  Number: " 'font-lock-face 'bold)) (insert (number-to-string number) "\n")
     (insert (propertize "    Name: " 'font-lock-face 'bold)) (esa-describe-insert-button (or name "---") 'esa-update-name-button esa) (insert "\n")
     (insert (propertize "Category: " 'font-lock-face 'bold)) (esa-describe-insert-button (or category "---") 'esa-update-category-button esa) (insert "\n")
