@@ -290,16 +290,18 @@ Parses the result and displays the list."
    (esa-simple-receiver "Update esa")
    `(,@(cond
         (body_md
-         `(("body_md" . ,body_md)
-           ("wip" . ,(if wip 't :json-false))))
+         `(("post" .
+            (("body_md" . ,body_md)
+             ("wip" . ,(if wip 't :json-false))))))
         (tags
          `(("post" .
-            (("name" . ,name)
-             ("tags" . ,(vconcat (split-string tags)))))))
+            (("tags" . ,(vconcat (split-string tags)))))))
         (category
-         `(("category" . ,category)))
+         `(("post" .
+            (("category" . ,category)))))
         (name
-         `(("name" . ,name)))))))
+         `(("post" .
+            (("name" . ,name)))))))))
 
 
 ;;; Components:
@@ -528,7 +530,6 @@ Edit the esa category."
   "Called when a esa [Edit] button has been pressed.
 Edit the esa tags."
   (let* ((json (button-get button 'esa-json))
-         (name (cdr (assq 'name json)))
          (tags (read-from-minibuffer
                 "Tgas: "
                 (mapconcat 'identity
@@ -536,7 +537,8 @@ Edit the esa tags."
                                        (format "%s" (cdr (assq 'tags json)))
                                        "[\]\[,\(\) ]"))
                            " "))))
-    (esa-update (button-get button 'repo) name nil tags nil)))
+    (esa-update (button-get button 'repo) nil nil tags nil)))
+
 (defun esa-open-web-button (button)
   "Called when a esa [Browse] button has been pressed."
   (let* ((json (button-get button 'esa-json))
