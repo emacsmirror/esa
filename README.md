@@ -54,6 +54,7 @@ Put following to your .emacs:
 * Code: `git clone git://github.com/nabinno/esa.el.git`
 * Home: <https://github.com/nabinno/esa.el>
 * Bugs: <https://github.com/nabinno/esa.el/issues>
+* Hosting: melpa
 
 ## EPILOGUE
 
