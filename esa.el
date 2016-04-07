@@ -580,7 +580,7 @@ Edit the esa tags."
   (cond
    (esa-token)
    (t
-    (browse-url (format "https://%s.esa.io/user/token" esa-team-name))
+    (browse-url (format "https://%s.esa.io/user/tokens" esa-team-name))
     (error "You need to get OAuth Access Token by your browser"))))
 
 (defun esa-make-query-string (params)
