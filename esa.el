@@ -35,7 +35,7 @@
 ;; Put following to your .emacs:
 ;;
 ;; (require 'esa)
-;; (setq esa-token"******************************")
+;; (setq esa-token "******************************")
 ;; (setq esa-team-name "yourteam")
 ;;
 ;; TODO:
