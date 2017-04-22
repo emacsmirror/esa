@@ -319,7 +319,7 @@ Parses the result and displays the list."
 (defun esa-insert-list-header ()
   "Creates the header line in the esa list buffer."
   (save-excursion
-    (insert "  No   Updated           Prog   Full Name"
+    (insert "  No    Updated           Prog   Full Name"
             (esa-fill-string "" (- (frame-width) 2))
             ".\n"))
   (let ((ov (make-overlay (line-beginning-position) (line-end-position))))
@@ -349,7 +349,7 @@ for the esa."
                       "WIP"
                     "Ship")))
     (list number
-          (esa-fill-string (number-to-string number) 3)
+          (esa-fill-string (number-to-string number) 4)
           (esa-fill-string
            (format-time-string
             esa-display-date-format (esa-parse-time-string updated-at))
