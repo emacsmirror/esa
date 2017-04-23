@@ -246,7 +246,7 @@ the URL into the kill ring."
       (esa-insert-list-header)))
   (esa-request
    "GET"
-   (format "https://api.esa.io/v1/teams/%s/posts" esa-team-name)
+   (format "https://api.esa.io/v1/teams/%s/posts?per_page=100" esa-team-name)
    'esa-lists-retrieved-callback
    (if q `(("q" . ,q)))))
 
