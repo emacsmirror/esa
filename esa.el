@@ -103,7 +103,7 @@ Example:
                 :value-type directory)
   :group 'esa)
 
-(defcustom esa-number-of-list-per-page "100"
+(defcustom esa-number-of-list-per-page "20"
   "Number of list per page."
   :type 'string
   :group 'esa)
