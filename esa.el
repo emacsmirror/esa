@@ -590,7 +590,7 @@ Edit the esa tags."
 (defun esa-request-0 (auth method url callback &optional json-or-params)
   (let* ((json (and (member method '("POST" "PATCH")) json-or-params))
          (params (and (member method '("GET" "DELETE")) json-or-params))
-         (url-request-data (and json (concat (json-encode json) "\n")))
+         (url-request-data (and json (concat (encode-coding-string (json-encode json) 'utf-8) "\n")))
          (url-request-extra-headers
           `(("Authorization" . ,auth)
             ("Content-Type" . "application/json;charset=UTF-8")))
